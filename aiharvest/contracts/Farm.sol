@@ -120,6 +120,41 @@ contract Farm is Ownable, ReentrancyGuard, Pausable {
         emit Withdraw(msg.sender, _pid, _amount);
     }
 
+    // 复投功能 - 直接将奖励再次质押
+    function compound(uint256 _pid) external nonReentrant whenNotPaused {
+        PoolInfo storage pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][msg.sender];
+        
+        _updatePool(_pid);
+        
+        // 计算待领取的奖励
+        uint256 pending = (user.amount * pool.accRewardPerShare / 1e12) - user.rewardDebt;
+        
+        require(pending > 0, "No rewards to compound");
+        require(user.amount > 0, "No staked tokens");
+        
+        // 检查合约中是否有足够的奖励代币
+        uint256 rewardBalance = rewardToken.balanceOf(address(this));
+        require(rewardBalance >= pending, "Insufficient reward balance");
+        
+        if (address(rewardToken) == address(pool.lpToken)) {
+            // 如果奖励代币就是LP代币，直接增加质押量
+            user.amount += pending;
+        } else {
+            // 如果不是LP代币，需要先将奖励代币转换为LP代币
+            // 这里应该实现具体的转换逻辑，比如通过DEX进行兑换
+            revert("Token conversion not supported yet");
+        }
+        
+        // 更新奖励债务
+        user.rewardDebt = user.amount * pool.accRewardPerShare / 1e12;
+        
+        // 更新解锁时间（可选，根据业务需求）
+        user.unlockTime = block.timestamp + 1 days; // 设置24小时锁定期
+        
+        emit Compound(msg.sender, _pid, pending);
+    }
+
     // 内部函数
     function _updatePool(uint256 _pid) internal {
         PoolInfo storage pool = poolInfo[_pid];
