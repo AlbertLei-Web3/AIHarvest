@@ -1,0 +1,137 @@
+/* Add these new styles */
+
+/* Wallet Connection */
+.nav__wallet {
+  margin-left: 1rem;
+}
+
+.nav__wallet .button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--first-color);
+  color: var(--white-color);
+  border-radius: 0.5rem;
+  transition: 0.3s;
+}
+
+.nav__wallet .button:hover {
+  background-color: var(--first-color-alt);
+}
+
+/* Home Stats */
+.home__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  margin: 2rem 0;
+}
+
+.stat__item {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  backdrop-filter: blur(8px);
+}
+
+.stat__item h3 {
+  font-size: var(--small-font-size);
+  color: var(--text-color-light);
+  margin-bottom: 0.5rem;
+}
+
+.stat__item p {
+  font-size: var(--h2-font-size);
+  color: var(--white-color);
+  font-weight: var(--font-semi-bold);
+}
+
+/* Pool Cards */
+.new__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.new__actions input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--text-color-light);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.new__actions .button {
+  padding: 0.5rem 1rem;
+  font-size: var(--smaller-font-size);
+}
+
+/* Staking Cards */
+.favorite__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.favorite__actions input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--text-color-light);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.favorite__actions .button {
+  padding: 0.5rem 1rem;
+  font-size: var(--smaller-font-size);
+}
+
+/* Loading States */
+.loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: "";
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--first-color);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: loading 0.75s infinite linear;
+  margin: 1rem auto;
+}
+
+@keyframes loading {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media screen and (max-width: 767px) {
+  .home__stats {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .new__actions,
+  .favorite__actions {
+    flex-direction: column;
+  }
+
+  .new__actions .button,
+  .favorite__actions .button {
+    width: 100%;
+  }
+} 

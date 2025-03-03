@@ -1,0 +1,343 @@
+  <!--==================== HEADER ====================-->
+  <header class="header" id="header">
+     <nav class="nav container">
+        <a href="#" class="nav__logo">AI Harvest</a>
+
+        <div class="nav__menu" id="nav-menu">
+           <ul class="nav__list">
+              <li class="nav__item">
+                 <a href="#home" class="nav__link active-link">Home</a>
+              </li>
+
+              <li class="nav__item">
+                 <a href="#new" class="nav__link">Pools</a>
+              </li>
+
+              <li class="nav__item">
+                 <a href="#about" class="nav__link">About</a>
+              </li>
+
+              <li class="nav__item">
+                 <a href="#favorite" class="nav__link">Staking</a>
+              </li>
+
+              <li class="nav__item">
+                 <a href="#visit" class="nav__link">AI Assistant</a>
+              </li>
+           </ul>
+
+           <!-- Wallet Connection -->
+           <div class="nav__wallet">
+              <button id="connectWallet" class="button">
+                 <i class="ri-wallet-line"></i>
+                 <span id="walletAddress">Connect Wallet</span>
+              </button>
+           </div>
+
+           <!-- Close button -->
+           <div class="nav__close" id="nav-close">
+              <i class="ri-close-line"></i>
+           </div>
+        </div>
+
+        <!-- Toggle button-->
+        <div class="nav__toggle" id="nav-toggle">
+           <i class="ri-menu-2-line"></i>
+        </div>
+     </nav>
+  </header>
+
+  <!--==================== MAIN ====================-->
+  <main class="main">
+     <!--==================== HOME ====================-->
+     <section class="home section" id="home">
+        <img src="assets/img/home-bg.jpg" alt="image" class="home__bg">
+        <div class="home shadow"></div>
+
+        <div class="home__container container grid">
+           <div class="home__data">
+              <h1 class="home__title">
+                 Decentralized <br> Yield Farming
+              </h1>
+
+              <div class="home__stats">
+                 <div class="stat__item">
+                    <h3>Total Value Locked</h3>
+                    <p id="totalValueLocked">$0.00</p>
+                 </div>
+                 <div class="stat__item">
+                    <h3>Total Farms</h3>
+                    <p id="totalFarms">0</p>
+                 </div>
+              </div>
+
+              <a href="#new" class="button">Start Farming</a>
+           </div>
+        </div>
+     </section>
+
+     <!--==================== Farm Pools ====================-->
+     <section class="new section" id="new">
+        <h2 class="section__title">Farming Pools</h2>
+
+        <div class="new__container container grid">
+           <div class="new__content" id="poolsContainer">
+              <!-- Pool cards will be dynamically added here -->
+           </div>
+        </div>
+     </section>
+
+     <!--==================== Staking ====================-->
+     <section class="favorite section" id="favorite">
+        <h2 class="section__title">Your Staking Positions</h2>
+
+        <div class="favorite__container container grid" id="stakingContainer">
+           <!-- Staking positions will be dynamically added here -->
+        </div>
+     </section>
+
+  </main>
+
+  <!--=============== Web3 Dependencies ===============-->
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+
+  <!--=============== MAIN JS ===============-->
+  <script src="assets/js/main.js"></script>
+
+  <script>
+     // Web3 Integration
+     let web3;
+     let accounts;
+     let factoryContract;
+     let farmContracts = [];
+     
+     const factoryAddress = "YOUR_FACTORY_CONTRACT_ADDRESS";
+     const factoryABI = []; // Add your Factory contract ABI here
+     
+     async function connectWallet() {
+        try {
+           if (typeof window.ethereum !== 'undefined') {
+              // Request account access
+              accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+              web3 = new Web3(window.ethereum);
+              
+              // Update UI
+              document.getElementById('walletAddress').textContent = 
+                 accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4);
+              
+              // Initialize contracts
+              await initializeContracts();
+              
+              // Load pools data
+              await loadPoolsData();
+              
+              // Load user's staking positions
+              await loadStakingPositions();
+           } else {
+              alert('Please install MetaMask!');
+           }
+        } catch (error) {
+           console.error('Error connecting wallet:', error);
+           alert('Error connecting wallet. See console for details.');
+        }
+     }
+     
+     async function initializeContracts() {
+        factoryContract = new web3.eth.Contract(factoryABI, factoryAddress);
+        
+        // Get all farms from factory
+        const farms = await factoryContract.methods.getAllFarms().call();
+        
+        // Initialize farm contracts
+        farmContracts = farms.map(farmAddress => {
+           return new web3.eth.Contract(farmABI, farmAddress);
+        });
+     }
+     
+     async function loadPoolsData() {
+        const poolsContainer = document.getElementById('poolsContainer');
+        poolsContainer.innerHTML = ''; // Clear existing content
+        
+        for (let i = 0; i < farmContracts.length; i++) {
+           const farm = farmContracts[i];
+           const poolLength = await farm.methods.poolLength().call();
+           
+           for (let pid = 0; pid < poolLength; pid++) {
+              const poolInfo = await farm.methods.poolInfo(pid).call();
+              const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
+              const tokenSymbol = await lpToken.methods.symbol().call();
+              
+              // Calculate APY
+              const rewardPerSecond = await farm.methods.rewardPerSecond().call();
+              const totalStaked = await lpToken.methods.balanceOf(farm._address).call();
+              const apy = calculateAPY(rewardPerSecond, totalStaked, poolInfo.allocPoint);
+              
+              const poolCard = document.createElement('article');
+              poolCard.className = 'new__card';
+              poolCard.innerHTML = `
+                 <div class="new__data">
+                    <h2 class="new__title">${tokenSymbol} Pool</h2>
+                    <p class="new__description">
+                       APY: ${apy}%<br>
+                       Total Staked: ${web3.utils.fromWei(totalStaked)} ${tokenSymbol}
+                    </p>
+                    <div class="new__actions">
+                       <input type="number" placeholder="Amount" id="stakeAmount_${i}_${pid}" />
+                       <button onclick="stake(${i}, ${pid})" class="button">Stake</button>
+                       <button onclick="harvest(${i}, ${pid})" class="button">Harvest</button>
+                       <button onclick="compound(${i}, ${pid})" class="button">Compound</button>
+                    </div>
+                 </div>
+              `;
+              
+              poolsContainer.appendChild(poolCard);
+           }
+        }
+     }
+     
+     async function loadStakingPositions() {
+        const stakingContainer = document.getElementById('stakingContainer');
+        stakingContainer.innerHTML = ''; // Clear existing content
+        
+        for (let i = 0; i < farmContracts.length; i++) {
+           const farm = farmContracts[i];
+           const poolLength = await farm.methods.poolLength().call();
+           
+           for (let pid = 0; pid < poolLength; pid++) {
+              const userInfo = await farm.methods.userInfo(pid, accounts[0]).call();
+              
+              if (userInfo.amount > 0) {
+                 const poolInfo = await farm.methods.poolInfo(pid).call();
+                 const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
+                 const tokenSymbol = await lpToken.methods.symbol().call();
+                 const pendingReward = await farm.methods.pendingReward(pid, accounts[0]).call();
+                 
+                 const positionCard = document.createElement('article');
+                 positionCard.className = 'favorite__card';
+                 positionCard.innerHTML = `
+                    <div class="favorite__data">
+                       <h2 class="favorite__title">${tokenSymbol}</h2>
+                       <span class="favorite__subtitle">Staked: ${web3.utils.fromWei(userInfo.amount)}</span>
+                       <h3 class="favorite__price">Rewards: ${web3.utils.fromWei(pendingReward)}</h3>
+                       <div class="favorite__actions">
+                          <input type="number" placeholder="Amount" id="withdrawAmount_${i}_${pid}" />
+                          <button onclick="withdraw(${i}, ${pid})" class="button">Withdraw</button>
+                       </div>
+                    </div>
+                 `;
+                 
+                 stakingContainer.appendChild(positionCard);
+              }
+           }
+        }
+     }
+     
+     function calculateAPY(rewardPerSecond, totalStaked, allocPoint) {
+        if (totalStaked === '0') return 0;
+        
+        const yearlyRewards = web3.utils.fromWei(rewardPerSecond) * 31536000; // seconds in a year
+        const stakedValue = web3.utils.fromWei(totalStaked);
+        return ((yearlyRewards / stakedValue) * 100).toFixed(2);
+     }
+     
+     async function stake(farmIndex, pid) {
+        try {
+           const amount = document.getElementById(`stakeAmount_${farmIndex}_${pid}`).value;
+           const farm = farmContracts[farmIndex];
+           const poolInfo = await farm.methods.poolInfo(pid).call();
+           const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
+           
+           // Approve tokens
+           await lpToken.methods.approve(
+              farm._address,
+              web3.utils.toWei(amount)
+           ).send({ from: accounts[0] });
+           
+           // Stake tokens
+           await farm.methods.deposit(
+              pid,
+              web3.utils.toWei(amount)
+           ).send({ from: accounts[0] });
+           
+           // Refresh data
+           await loadPoolsData();
+           await loadStakingPositions();
+        } catch (error) {
+           console.error('Error staking:', error);
+           alert('Error staking. See console for details.');
+        }
+     }
+     
+     async function withdraw(farmIndex, pid) {
+        try {
+           const amount = document.getElementById(`withdrawAmount_${farmIndex}_${pid}`).value;
+           const farm = farmContracts[farmIndex];
+           
+           await farm.methods.withdraw(
+              pid,
+              web3.utils.toWei(amount)
+           ).send({ from: accounts[0] });
+           
+           // Refresh data
+           await loadPoolsData();
+           await loadStakingPositions();
+        } catch (error) {
+           console.error('Error withdrawing:', error);
+           alert('Error withdrawing. See console for details.');
+        }
+     }
+     
+     async function harvest(farmIndex, pid) {
+        try {
+           const farm = farmContracts[farmIndex];
+           
+           // Harvest by depositing 0
+           await farm.methods.deposit(pid, '0').send({ from: accounts[0] });
+           
+           // Refresh data
+           await loadStakingPositions();
+        } catch (error) {
+           console.error('Error harvesting:', error);
+           alert('Error harvesting. See console for details.');
+        }
+     }
+     
+     async function compound(farmIndex, pid) {
+        try {
+           const farm = farmContracts[farmIndex];
+           
+           await farm.methods.compound(pid).send({ from: accounts[0] });
+           
+           // Refresh data
+           await loadPoolsData();
+           await loadStakingPositions();
+        } catch (error) {
+           console.error('Error compounding:', error);
+           alert('Error compounding. See console for details.');
+        }
+     }
+     
+     // Event Listeners
+     document.getElementById('connectWallet').addEventListener('click', connectWallet);
+     
+     // Check if wallet is already connected
+     if (typeof window.ethereum !== 'undefined') {
+        window.ethereum.on('accountsChanged', function (accounts) {
+           connectWallet();
+        });
+        
+        window.ethereum.on('chainChanged', function (chainId) {
+           window.location.reload();
+        });
+        
+        // Try to connect if already authorized
+        window.ethereum.request({ method: 'eth_accounts' })
+           .then(function (accounts) {
+              if (accounts.length > 0) {
+                 connectWallet();
+              }
+           });
+     }
+  </script>
+</body>
+</html> 
