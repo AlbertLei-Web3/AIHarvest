@@ -110,234 +110,776 @@
      let accounts;
      let factoryContract;
      let farmContracts = [];
+     let isProcessing = false; // 防止重复操作
      
      const factoryAddress = "YOUR_FACTORY_CONTRACT_ADDRESS";
      const factoryABI = []; // Add your Factory contract ABI here
+     const farmABI = []; // Add your Farm contract ABI here
+     const erc20ABI = []; // Add ERC20 ABI here
+     
+     // 错误处理函数
+     function handleError(error, operation) {
+        console.error(`Error during ${operation}:`, error);
+        
+        // 解析错误信息
+        let errorMessage = "An unknown error occurred";
+        
+        if (error.code === 4001) {
+           errorMessage = "Transaction rejected by user";
+        } else if (error.code === -32603) {
+           errorMessage = "Internal JSON-RPC error";
+        } else if (error.message) {
+           // 尝试从错误消息中提取有用信息
+           if (error.message.includes("user rejected")) {
+              errorMessage = "Transaction rejected by user";
+           } else if (error.message.includes("insufficient funds")) {
+              errorMessage = "Insufficient funds for transaction";
+           } else if (error.message.includes("gas required exceeds")) {
+              errorMessage = "Transaction would exceed gas limit";
+           } else if (error.message.includes("execution reverted")) {
+              // 尝试从错误数据中提取自定义错误
+              try {
+                 const errorData = error.message.split("execution reverted:")[1].trim();
+                 if (errorData) {
+                    errorMessage = errorData;
+                 }
+              } catch (e) {
+                 errorMessage = "Transaction reverted by contract";
+              }
+           } else {
+              errorMessage = error.message;
+           }
+        }
+        
+        // 显示错误消息
+        showNotification(errorMessage, "error");
+        
+        // 重置处理状态
+        isProcessing = false;
+        
+        // 移除加载状态
+        document.querySelectorAll('.loading').forEach(el => {
+           el.classList.remove('loading');
+        });
+     }
+     
+     // 显示通知函数
+     function showNotification(message, type = "info") {
+        // 创建通知元素
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+           <div class="notification__content">
+              <i class="ri-${type === 'error' ? 'error-warning' : type === 'success' ? 'check-line' : 'information'}-line"></i>
+              <span>${message}</span>
+           </div>
+           <button class="notification__close">
+              <i class="ri-close-line"></i>
+           </button>
+        `;
+        
+        // 添加到页面
+        document.body.appendChild(notification);
+        
+        // 添加关闭按钮事件
+        notification.querySelector('.notification__close').addEventListener('click', () => {
+           notification.classList.add('notification--closing');
+           setTimeout(() => {
+              notification.remove();
+           }, 300);
+        });
+        
+        // 自动关闭
+        setTimeout(() => {
+           if (document.body.contains(notification)) {
+              notification.classList.add('notification--closing');
+              setTimeout(() => {
+                 if (document.body.contains(notification)) {
+                    notification.remove();
+                 }
+              }, 300);
+           }
+        }, 5000);
+     }
+     
+     // 验证输入函数
+     function validateInput(input, min = 0) {
+        const value = parseFloat(input.value);
+        
+        if (isNaN(value)) {
+           input.classList.add('input-error');
+           showNotification("Please enter a valid number", "error");
+           return false;
+        }
+        
+        if (value <= min) {
+           input.classList.add('input-error');
+           showNotification(`Value must be greater than ${min}`, "error");
+           return false;
+        }
+        
+        input.classList.remove('input-error');
+        return true;
+     }
+     
+     // 添加输入验证事件
+     function setupInputValidation() {
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+           input.addEventListener('input', () => {
+              validateInput(input);
+           });
+        });
+     }
      
      async function connectWallet() {
+        if (isProcessing) return;
+        isProcessing = true;
+        
         try {
            if (typeof window.ethereum !== 'undefined') {
-              // Request account access
+              // 显示加载状态
+              document.getElementById('connectWallet').classList.add('loading');
+              
+              // 请求账户访问
               accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
               web3 = new Web3(window.ethereum);
               
-              // Update UI
+              // 检查网络
+              const chainId = await web3.eth.getChainId();
+              const supportedChainIds = [1, 5, 11155111]; // 主网, Goerli, Sepolia
+              
+              if (!supportedChainIds.includes(chainId)) {
+                 showNotification("Please connect to Ethereum Mainnet, Goerli, or Sepolia", "error");
+                 
+                 // 尝试切换网络
+                 try {
+                    await window.ethereum.request({
+                       method: 'wallet_switchEthereumChain',
+                       params: [{ chainId: '0x1' }], // 切换到主网
+                    });
+                 } catch (switchError) {
+                    // 用户拒绝切换网络
+                    isProcessing = false;
+                    document.getElementById('connectWallet').classList.remove('loading');
+                    return;
+                 }
+              }
+              
+              // 更新UI
               document.getElementById('walletAddress').textContent = 
                  accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4);
               
-              // Initialize contracts
+              // 初始化合约
               await initializeContracts();
               
-              // Load pools data
+              // 加载池数据
               await loadPoolsData();
               
-              // Load user's staking positions
+              // 加载用户质押位置
               await loadStakingPositions();
+              
+              // 设置输入验证
+              setupInputValidation();
+              
+              showNotification("Wallet connected successfully", "success");
            } else {
-              alert('Please install MetaMask!');
+              showNotification("Please install MetaMask!", "error");
            }
         } catch (error) {
-           console.error('Error connecting wallet:', error);
-           alert('Error connecting wallet. See console for details.');
+           handleError(error, "wallet connection");
+        } finally {
+           isProcessing = false;
+           document.getElementById('connectWallet').classList.remove('loading');
         }
      }
      
      async function initializeContracts() {
-        factoryContract = new web3.eth.Contract(factoryABI, factoryAddress);
-        
-        // Get all farms from factory
-        const farms = await factoryContract.methods.getAllFarms().call();
-        
-        // Initialize farm contracts
-        farmContracts = farms.map(farmAddress => {
-           return new web3.eth.Contract(farmABI, farmAddress);
-        });
+        try {
+           // 验证合约地址
+           if (!web3.utils.isAddress(factoryAddress)) {
+              throw new Error("Invalid factory contract address");
+           }
+           
+           factoryContract = new web3.eth.Contract(factoryABI, factoryAddress);
+           
+           // 获取所有农场
+           const farms = await factoryContract.methods.getAllFarms().call();
+           
+           if (farms.length === 0) {
+              showNotification("No farms found", "info");
+           }
+           
+           // 初始化农场合约
+           farmContracts = [];
+           for (let i = 0; i < farms.length; i++) {
+              if (!web3.utils.isAddress(farms[i])) {
+                 showNotification(`Invalid farm address: ${farms[i]}`, "error");
+                 continue;
+              }
+              
+              farmContracts.push(new web3.eth.Contract(farmABI, farms[i]));
+           }
+           
+           // 更新总农场数量
+           document.getElementById('totalFarms').textContent = farmContracts.length;
+           
+           // 计算总锁定价值
+           let totalLocked = 0;
+           for (let i = 0; i < farmContracts.length; i++) {
+              try {
+                 const farm = farmContracts[i];
+                 const poolLength = await farm.methods.poolLength().call();
+                 
+                 for (let pid = 0; pid < poolLength; pid++) {
+                    const poolInfo = await farm.methods.poolInfo(pid).call();
+                    const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
+                    const totalStaked = await lpToken.methods.balanceOf(farm._address).call();
+                    
+                    // 这里应该有一个价格预言机来获取代币价格
+                    // 简化起见，我们假设每个代币价值1美元
+                    totalLocked += parseFloat(web3.utils.fromWei(totalStaked));
+                 }
+              } catch (error) {
+                 console.error("Error calculating TVL for farm", i, error);
+              }
+           }
+           
+           document.getElementById('totalValueLocked').textContent = `$${totalLocked.toFixed(2)}`;
+        } catch (error) {
+           handleError(error, "contract initialization");
+        }
      }
      
      async function loadPoolsData() {
         const poolsContainer = document.getElementById('poolsContainer');
-        poolsContainer.innerHTML = ''; // Clear existing content
+        poolsContainer.innerHTML = ''; // 清除现有内容
+        poolsContainer.classList.add('loading');
         
-        for (let i = 0; i < farmContracts.length; i++) {
-           const farm = farmContracts[i];
-           const poolLength = await farm.methods.poolLength().call();
-           
-           for (let pid = 0; pid < poolLength; pid++) {
-              const poolInfo = await farm.methods.poolInfo(pid).call();
-              const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
-              const tokenSymbol = await lpToken.methods.symbol().call();
-              
-              // Calculate APY
-              const rewardPerSecond = await farm.methods.rewardPerSecond().call();
-              const totalStaked = await lpToken.methods.balanceOf(farm._address).call();
-              const apy = calculateAPY(rewardPerSecond, totalStaked, poolInfo.allocPoint);
-              
-              const poolCard = document.createElement('article');
-              poolCard.className = 'new__card';
-              poolCard.innerHTML = `
-                 <div class="new__data">
-                    <h2 class="new__title">${tokenSymbol} Pool</h2>
-                    <p class="new__description">
-                       APY: ${apy}%<br>
-                       Total Staked: ${web3.utils.fromWei(totalStaked)} ${tokenSymbol}
-                    </p>
-                    <div class="new__actions">
-                       <input type="number" placeholder="Amount" id="stakeAmount_${i}_${pid}" />
-                       <button onclick="stake(${i}, ${pid})" class="button">Stake</button>
-                       <button onclick="harvest(${i}, ${pid})" class="button">Harvest</button>
-                       <button onclick="compound(${i}, ${pid})" class="button">Compound</button>
-                    </div>
-                 </div>
-              `;
-              
-              poolsContainer.appendChild(poolCard);
+        try {
+           if (farmContracts.length === 0) {
+              poolsContainer.innerHTML = '<div class="empty-state">No farming pools available</div>';
+              return;
            }
+           
+           for (let i = 0; i < farmContracts.length; i++) {
+              try {
+                 const farm = farmContracts[i];
+                 const poolLength = await farm.methods.poolLength().call();
+                 
+                 if (poolLength === '0') {
+                    continue;
+                 }
+                 
+                 for (let pid = 0; pid < poolLength; pid++) {
+                    try {
+                       const poolInfo = await farm.methods.poolInfo(pid).call();
+                       const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
+                       
+                       // 获取代币信息
+                       let tokenSymbol, tokenDecimals;
+                       try {
+                          tokenSymbol = await lpToken.methods.symbol().call();
+                          tokenDecimals = await lpToken.methods.decimals().call();
+                       } catch (error) {
+                          console.error("Error getting token info", error);
+                          tokenSymbol = "Unknown";
+                          tokenDecimals = 18;
+                       }
+                       
+                       // 计算APY
+                       const rewardPerSecond = await farm.methods.rewardPerSecond().call();
+                       const totalStaked = await lpToken.methods.balanceOf(farm._address).call();
+                       const apy = calculateAPY(rewardPerSecond, totalStaked, poolInfo.allocPoint);
+                       
+                       // 获取用户余额
+                       let userBalance = '0';
+                       try {
+                          userBalance = await lpToken.methods.balanceOf(accounts[0]).call();
+                       } catch (error) {
+                          console.error("Error getting user balance", error);
+                       }
+                       
+                       const poolCard = document.createElement('article');
+                       poolCard.className = 'new__card';
+                       poolCard.innerHTML = `
+                          <div class="new__data">
+                             <h2 class="new__title">${tokenSymbol} Pool</h2>
+                             <p class="new__description">
+                                APY: ${apy}%<br>
+                                Total Staked: ${formatAmount(totalStaked, tokenDecimals)} ${tokenSymbol}<br>
+                                Your Balance: ${formatAmount(userBalance, tokenDecimals)} ${tokenSymbol}
+                             </p>
+                             <div class="new__actions">
+                                <div class="input-group">
+                                   <input type="number" placeholder="Amount" id="stakeAmount_${i}_${pid}" min="0" step="0.000001" />
+                                   <button class="input-max" onclick="setMaxAmount(${i}, ${pid})">MAX</button>
+                                </div>
+                                <button onclick="stake(${i}, ${pid})" class="button">Stake</button>
+                                <button onclick="harvest(${i}, ${pid})" class="button">Harvest</button>
+                                <button onclick="compound(${i}, ${pid})" class="button">Compound</button>
+                             </div>
+                          </div>
+                       `;
+                       
+                       poolsContainer.appendChild(poolCard);
+                    } catch (error) {
+                       console.error(`Error loading pool ${pid} data for farm ${i}:`, error);
+                    }
+                 }
+              } catch (error) {
+                 console.error(`Error loading farm ${i} data:`, error);
+              }
+           }
+           
+           if (poolsContainer.children.length === 0) {
+              poolsContainer.innerHTML = '<div class="empty-state">No farming pools available</div>';
+           }
+        } catch (error) {
+           handleError(error, "loading pools data");
+        } finally {
+           poolsContainer.classList.remove('loading');
         }
      }
      
      async function loadStakingPositions() {
         const stakingContainer = document.getElementById('stakingContainer');
-        stakingContainer.innerHTML = ''; // Clear existing content
+        stakingContainer.innerHTML = ''; // 清除现有内容
+        stakingContainer.classList.add('loading');
         
-        for (let i = 0; i < farmContracts.length; i++) {
-           const farm = farmContracts[i];
-           const poolLength = await farm.methods.poolLength().call();
+        try {
+           let hasPositions = false;
            
-           for (let pid = 0; pid < poolLength; pid++) {
-              const userInfo = await farm.methods.userInfo(pid, accounts[0]).call();
-              
-              if (userInfo.amount > 0) {
-                 const poolInfo = await farm.methods.poolInfo(pid).call();
-                 const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
-                 const tokenSymbol = await lpToken.methods.symbol().call();
-                 const pendingReward = await farm.methods.pendingReward(pid, accounts[0]).call();
+           for (let i = 0; i < farmContracts.length; i++) {
+              try {
+                 const farm = farmContracts[i];
+                 const poolLength = await farm.methods.poolLength().call();
                  
-                 const positionCard = document.createElement('article');
-                 positionCard.className = 'favorite__card';
-                 positionCard.innerHTML = `
-                    <div class="favorite__data">
-                       <h2 class="favorite__title">${tokenSymbol}</h2>
-                       <span class="favorite__subtitle">Staked: ${web3.utils.fromWei(userInfo.amount)}</span>
-                       <h3 class="favorite__price">Rewards: ${web3.utils.fromWei(pendingReward)}</h3>
-                       <div class="favorite__actions">
-                          <input type="number" placeholder="Amount" id="withdrawAmount_${i}_${pid}" />
-                          <button onclick="withdraw(${i}, ${pid})" class="button">Withdraw</button>
-                       </div>
-                    </div>
-                 `;
-                 
-                 stakingContainer.appendChild(positionCard);
+                 for (let pid = 0; pid < poolLength; pid++) {
+                    try {
+                       const userInfo = await farm.methods.userInfo(pid, accounts[0]).call();
+                       
+                       if (userInfo.amount > 0) {
+                          hasPositions = true;
+                          const poolInfo = await farm.methods.poolInfo(pid).call();
+                          const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
+                          
+                          // 获取代币信息
+                          let tokenSymbol, tokenDecimals;
+                          try {
+                             tokenSymbol = await lpToken.methods.symbol().call();
+                             tokenDecimals = await lpToken.methods.decimals().call();
+                          } catch (error) {
+                             console.error("Error getting token info", error);
+                             tokenSymbol = "Unknown";
+                             tokenDecimals = 18;
+                          }
+                          
+                          const pendingReward = await farm.methods.pendingReward(pid, accounts[0]).call();
+                          const unlockTime = parseInt(userInfo.unlockTime);
+                          const now = Math.floor(Date.now() / 1000);
+                          const isLocked = unlockTime > now;
+                          
+                          const positionCard = document.createElement('article');
+                          positionCard.className = 'favorite__card';
+                          positionCard.innerHTML = `
+                             <div class="favorite__data">
+                                <h2 class="favorite__title">${tokenSymbol}</h2>
+                                <span class="favorite__subtitle">Staked: ${formatAmount(userInfo.amount, tokenDecimals)}</span>
+                                <h3 class="favorite__price">Rewards: ${formatAmount(pendingReward, 18)}</h3>
+                                ${isLocked ? 
+                                   `<div class="lock-info">
+                                      <i class="ri-lock-line"></i> 
+                                      Locked until ${formatDate(unlockTime)}
+                                   </div>` : 
+                                   `<div class="favorite__actions">
+                                      <div class="input-group">
+                                         <input type="number" placeholder="Amount" id="withdrawAmount_${i}_${pid}" min="0" step="0.000001" />
+                                         <button class="input-max" onclick="setMaxWithdrawAmount(${i}, ${pid})">MAX</button>
+                                      </div>
+                                      <button onclick="withdraw(${i}, ${pid})" class="button">Withdraw</button>
+                                   </div>`
+                                }
+                             </div>
+                          `;
+                          
+                          stakingContainer.appendChild(positionCard);
+                       }
+                    } catch (error) {
+                       console.error(`Error loading staking position for pool ${pid} in farm ${i}:`, error);
+                    }
+                 }
+              } catch (error) {
+                 console.error(`Error loading staking positions for farm ${i}:`, error);
               }
            }
+           
+           if (!hasPositions) {
+              stakingContainer.innerHTML = '<div class="empty-state">You have no active staking positions</div>';
+           }
+        } catch (error) {
+           handleError(error, "loading staking positions");
+        } finally {
+           stakingContainer.classList.remove('loading');
+        }
+     }
+     
+     // 格式化金额
+     function formatAmount(amount, decimals = 18) {
+        try {
+           const value = web3.utils.toBN(amount).toString();
+           const formatted = web3.utils.fromWei(value);
+           return parseFloat(formatted).toFixed(6);
+        } catch (error) {
+           console.error("Error formatting amount", error);
+           return "0.00";
+        }
+     }
+     
+     // 格式化日期
+     function formatDate(timestamp) {
+        const date = new Date(timestamp * 1000);
+        return date.toLocaleString();
+     }
+     
+     // 设置最大金额
+     async function setMaxAmount(farmIndex, pid) {
+        try {
+           const farm = farmContracts[farmIndex];
+           const poolInfo = await farm.methods.poolInfo(pid).call();
+           const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
+           const balance = await lpToken.methods.balanceOf(accounts[0]).call();
+           
+           document.getElementById(`stakeAmount_${farmIndex}_${pid}`).value = 
+              web3.utils.fromWei(balance);
+        } catch (error) {
+           handleError(error, "setting max amount");
+        }
+     }
+     
+     // 设置最大提取金额
+     async function setMaxWithdrawAmount(farmIndex, pid) {
+        try {
+           const farm = farmContracts[farmIndex];
+           const userInfo = await farm.methods.userInfo(pid, accounts[0]).call();
+           
+           document.getElementById(`withdrawAmount_${farmIndex}_${pid}`).value = 
+              web3.utils.fromWei(userInfo.amount);
+        } catch (error) {
+           handleError(error, "setting max withdraw amount");
         }
      }
      
      function calculateAPY(rewardPerSecond, totalStaked, allocPoint) {
         if (totalStaked === '0') return 0;
         
-        const yearlyRewards = web3.utils.fromWei(rewardPerSecond) * 31536000; // seconds in a year
-        const stakedValue = web3.utils.fromWei(totalStaked);
-        return ((yearlyRewards / stakedValue) * 100).toFixed(2);
+        try {
+           const yearlyRewards = parseFloat(web3.utils.fromWei(rewardPerSecond)) * 31536000; // seconds in a year
+           const stakedValue = parseFloat(web3.utils.fromWei(totalStaked));
+           return ((yearlyRewards / stakedValue) * 100).toFixed(2);
+        } catch (error) {
+           console.error("Error calculating APY", error);
+           return "0.00";
+        }
      }
      
      async function stake(farmIndex, pid) {
+        if (isProcessing) return;
+        
+        const amountInput = document.getElementById(`stakeAmount_${farmIndex}_${pid}`);
+        if (!validateInput(amountInput)) return;
+        
+        const amount = amountInput.value;
+        const stakeButton = amountInput.nextElementSibling;
+        
+        isProcessing = true;
+        stakeButton.classList.add('loading');
+        
         try {
-           const amount = document.getElementById(`stakeAmount_${farmIndex}_${pid}`).value;
            const farm = farmContracts[farmIndex];
            const poolInfo = await farm.methods.poolInfo(pid).call();
            const lpToken = new web3.eth.Contract(erc20ABI, poolInfo.lpToken);
            
-           // Approve tokens
+           // 检查余额
+           const balance = await lpToken.methods.balanceOf(accounts[0]).call();
+           const amountWei = web3.utils.toWei(amount);
+           
+           if (web3.utils.toBN(balance).lt(web3.utils.toBN(amountWei))) {
+              throw new Error("Insufficient balance");
+           }
+           
+           // 批准代币
+           showNotification("Approving tokens...", "info");
            await lpToken.methods.approve(
               farm._address,
-              web3.utils.toWei(amount)
+              amountWei
            ).send({ from: accounts[0] });
            
-           // Stake tokens
+           // 质押代币
+           showNotification("Staking tokens...", "info");
            await farm.methods.deposit(
               pid,
-              web3.utils.toWei(amount)
+              amountWei
            ).send({ from: accounts[0] });
            
-           // Refresh data
+           // 刷新数据
            await loadPoolsData();
            await loadStakingPositions();
+           
+           // 清除输入
+           amountInput.value = '';
+           
+           showNotification("Tokens staked successfully", "success");
         } catch (error) {
-           console.error('Error staking:', error);
-           alert('Error staking. See console for details.');
+           handleError(error, "staking");
+        } finally {
+           isProcessing = false;
+           stakeButton.classList.remove('loading');
         }
      }
      
      async function withdraw(farmIndex, pid) {
+        if (isProcessing) return;
+        
+        const amountInput = document.getElementById(`withdrawAmount_${farmIndex}_${pid}`);
+        if (!validateInput(amountInput)) return;
+        
+        const amount = amountInput.value;
+        const withdrawButton = amountInput.nextElementSibling;
+        
+        isProcessing = true;
+        withdrawButton.classList.add('loading');
+        
         try {
-           const amount = document.getElementById(`withdrawAmount_${farmIndex}_${pid}`).value;
            const farm = farmContracts[farmIndex];
            
+           // 检查用户信息
+           const userInfo = await farm.methods.userInfo(pid, accounts[0]).call();
+           const amountWei = web3.utils.toWei(amount);
+           
+           if (web3.utils.toBN(userInfo.amount).lt(web3.utils.toBN(amountWei))) {
+              throw new Error("Insufficient staked balance");
+           }
+           
+           // 检查锁定时间
+           const unlockTime = parseInt(userInfo.unlockTime);
+           const now = Math.floor(Date.now() / 1000);
+           
+           if (unlockTime > now) {
+              throw new Error(`Tokens are locked until ${formatDate(unlockTime)}`);
+           }
+           
+           // 提取代币
+           showNotification("Withdrawing tokens...", "info");
            await farm.methods.withdraw(
               pid,
-              web3.utils.toWei(amount)
+              amountWei
            ).send({ from: accounts[0] });
            
-           // Refresh data
+           // 刷新数据
            await loadPoolsData();
            await loadStakingPositions();
+           
+           // 清除输入
+           amountInput.value = '';
+           
+           showNotification("Tokens withdrawn successfully", "success");
         } catch (error) {
-           console.error('Error withdrawing:', error);
-           alert('Error withdrawing. See console for details.');
+           handleError(error, "withdrawing");
+        } finally {
+           isProcessing = false;
+           withdrawButton.classList.remove('loading');
         }
      }
      
      async function harvest(farmIndex, pid) {
+        if (isProcessing) return;
+        isProcessing = true;
+        
         try {
            const farm = farmContracts[farmIndex];
            
-           // Harvest by depositing 0
+           // 检查待领取奖励
+           const pendingReward = await farm.methods.pendingReward(pid, accounts[0]).call();
+           
+           if (web3.utils.toBN(pendingReward).isZero()) {
+              showNotification("No rewards to harvest", "info");
+              isProcessing = false;
+              return;
+           }
+           
+           // 通过存入0来收获
+           showNotification("Harvesting rewards...", "info");
            await farm.methods.deposit(pid, '0').send({ from: accounts[0] });
            
-           // Refresh data
+           // 刷新数据
            await loadStakingPositions();
+           
+           showNotification("Rewards harvested successfully", "success");
         } catch (error) {
-           console.error('Error harvesting:', error);
-           alert('Error harvesting. See console for details.');
+           handleError(error, "harvesting");
+        } finally {
+           isProcessing = false;
         }
      }
      
      async function compound(farmIndex, pid) {
+        if (isProcessing) return;
+        isProcessing = true;
+        
         try {
            const farm = farmContracts[farmIndex];
            
+           // 检查待领取奖励
+           const pendingReward = await farm.methods.pendingReward(pid, accounts[0]).call();
+           
+           if (web3.utils.toBN(pendingReward).isZero()) {
+              showNotification("No rewards to compound", "info");
+              isProcessing = false;
+              return;
+           }
+           
+           // 复投
+           showNotification("Compounding rewards...", "info");
            await farm.methods.compound(pid).send({ from: accounts[0] });
            
-           // Refresh data
+           // 刷新数据
            await loadPoolsData();
            await loadStakingPositions();
+           
+           showNotification("Rewards compounded successfully", "success");
         } catch (error) {
-           console.error('Error compounding:', error);
-           alert('Error compounding. See console for details.');
+           handleError(error, "compounding");
+        } finally {
+           isProcessing = false;
         }
      }
      
-     // Event Listeners
+     // 事件监听器
      document.getElementById('connectWallet').addEventListener('click', connectWallet);
      
-     // Check if wallet is already connected
+     // 检查钱包是否已连接
      if (typeof window.ethereum !== 'undefined') {
         window.ethereum.on('accountsChanged', function (accounts) {
+           showNotification("Account changed, reconnecting...", "info");
            connectWallet();
         });
         
         window.ethereum.on('chainChanged', function (chainId) {
+           showNotification("Network changed, reloading...", "info");
            window.location.reload();
         });
         
-        // Try to connect if already authorized
+        // 如果已授权，尝试连接
         window.ethereum.request({ method: 'eth_accounts' })
            .then(function (accounts) {
               if (accounts.length > 0) {
                  connectWallet();
               }
+           })
+           .catch(function (error) {
+              console.error("Error checking accounts", error);
            });
      }
+     
+     // 添加CSS样式
+     const style = document.createElement('style');
+     style.textContent = `
+        .notification {
+           position: fixed;
+           bottom: 20px;
+           right: 20px;
+           background: var(--container-color);
+           border-left: 4px solid var(--first-color);
+           padding: 15px;
+           border-radius: 4px;
+           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+           z-index: 1000;
+           display: flex;
+           align-items: center;
+           justify-content: space-between;
+           min-width: 300px;
+           max-width: 450px;
+           animation: slideIn 0.3s ease;
+        }
+        
+        .notification.error {
+           border-left-color: #ff3860;
+        }
+        
+        .notification.success {
+           border-left-color: #23d160;
+        }
+        
+        .notification__content {
+           display: flex;
+           align-items: center;
+           gap: 10px;
+        }
+        
+        .notification__close {
+           background: none;
+           border: none;
+           cursor: pointer;
+           color: var(--text-color);
+        }
+        
+        .notification--closing {
+           animation: slideOut 0.3s ease forwards;
+        }
+        
+        @keyframes slideIn {
+           from { transform: translateX(100%); opacity: 0; }
+           to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+           from { transform: translateX(0); opacity: 1; }
+           to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .input-error {
+           border-color: #ff3860 !important;
+        }
+        
+        .empty-state {
+           text-align: center;
+           padding: 2rem;
+           color: var(--text-color-light);
+        }
+        
+        .input-group {
+           position: relative;
+           width: 100%;
+        }
+        
+        .input-group input {
+           width: 100%;
+           padding-right: 60px;
+        }
+        
+        .input-max {
+           position: absolute;
+           right: 5px;
+           top: 50%;
+           transform: translateY(-50%);
+           background: var(--first-color);
+           color: var(--white-color);
+           border: none;
+           border-radius: 4px;
+           padding: 2px 8px;
+           font-size: 12px;
+           cursor: pointer;
+        }
+        
+        .lock-info {
+           display: flex;
+           align-items: center;
+           gap: 5px;
+           margin-top: 10px;
+           color: var(--text-color-light);
+        }
+     `;
+     document.head.appendChild(style);
   </script>
 </body>
 </html> 
