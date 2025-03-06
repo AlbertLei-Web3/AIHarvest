@@ -118,6 +118,159 @@
   }
 }
 
+/* Tooltip Styles */
+.tooltip {
+    position: fixed;
+    background: var(--container-color);
+    color: var(--text-color);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: var(--smaller-font-size);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+/* Skeleton Loading */
+.skeleton-card {
+    background: var(--container-color);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    animation: pulse 1.5s infinite;
+}
+
+.skeleton-title {
+    height: 24px;
+    background: var(--text-color-light);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    opacity: 0.1;
+}
+
+.skeleton-text {
+    height: 16px;
+    background: var(--text-color-light);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    opacity: 0.1;
+    width: 80%;
+}
+
+.skeleton-button {
+    height: 36px;
+    background: var(--text-color-light);
+    border-radius: 4px;
+    margin-top: 1rem;
+    opacity: 0.1;
+    width: 120px;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.6; }
+}
+
+/* Transaction Confirmation */
+.transaction-confirmation {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--container-color);
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease;
+    z-index: 1000;
+}
+
+.confirmation-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.confirmation-content i {
+    font-size: 2rem;
+    color: var(--first-color);
+}
+
+.confirmation-content a {
+    color: var(--first-color);
+    text-decoration: underline;
+}
+
+.fade-out {
+    animation: fadeOut 0.3s ease forwards;
+}
+
+@keyframes fadeOut {
+    to { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Button Hover Effects */
+.button {
+    position: relative;
+    overflow: hidden;
+}
+
+.button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.button:hover::after {
+    width: 200%;
+    height: 200%;
+}
+
+/* Input Focus Effects */
+input:focus {
+    outline: none;
+    border-color: var(--first-color);
+    box-shadow: 0 0 0 2px rgba(var(--first-color-rgb), 0.1);
+}
+
+/* Card Hover Effects */
+.new__card,
+.favorite__card {
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.new__card:hover,
+.favorite__card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Loading Animation Improvements */
+.loading::after {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive Improvements */
+@media screen and (max-width: 767px) {
+    .tooltip {
+        display: none;
+    }
+    
+    .transaction-confirmation {
+        left: 20px;
+        right: 20px;
+        text-align: center;
+    }
+}
+
 /* Responsive Design */
 @media screen and (max-width: 767px) {
   .home__stats {

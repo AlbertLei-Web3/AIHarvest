@@ -350,10 +350,46 @@
         }
      }
      
+     // 添加 Tooltip 功能
+     function createTooltip(element, text) {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = text;
+        
+        element.addEventListener('mouseenter', () => {
+           document.body.appendChild(tooltip);
+           const rect = element.getBoundingClientRect();
+           tooltip.style.top = `${rect.top - tooltip.offsetHeight - 5}px`;
+           tooltip.style.left = `${rect.left + (rect.width - tooltip.offsetWidth) / 2}px`;
+        });
+        
+        element.addEventListener('mouseleave', () => {
+           document.body.removeChild(tooltip);
+        });
+     }
+     
+     // 添加加载骨架屏
+     function showSkeletonLoading(container) {
+        const skeletons = Array(3).fill().map(() => {
+           const skeleton = document.createElement('div');
+           skeleton.className = 'skeleton-card';
+           skeleton.innerHTML = `
+              <div class="skeleton-title"></div>
+              <div class="skeleton-text"></div>
+              <div class="skeleton-text"></div>
+              <div class="skeleton-button"></div>
+           `;
+           return skeleton;
+        });
+        
+        container.innerHTML = '';
+        skeletons.forEach(skeleton => container.appendChild(skeleton));
+     }
+     
+     // 优化 loadPoolsData 函数
      async function loadPoolsData() {
         const poolsContainer = document.getElementById('poolsContainer');
-        poolsContainer.innerHTML = ''; // 清除现有内容
-        poolsContainer.classList.add('loading');
+        showSkeletonLoading(poolsContainer);
         
         try {
            if (farmContracts.length === 0) {
@@ -880,6 +916,50 @@
         }
      `;
      document.head.appendChild(style);
+
+     // 添加数字动画效果
+     function animateNumber(element, start, end, duration = 1000) {
+        const startTime = performance.now();
+        const updateNumber = (currentTime) => {
+           const elapsed = currentTime - startTime;
+           const progress = Math.min(elapsed / duration, 1);
+           
+           const current = start + (end - start) * progress;
+           element.textContent = current.toFixed(2);
+           
+           if (progress < 1) {
+              requestAnimationFrame(updateNumber);
+           }
+        };
+        
+        requestAnimationFrame(updateNumber);
+     }
+
+     // 优化连接钱包按钮
+     document.getElementById('connectWallet').addEventListener('mouseover', function() {
+        if (!web3) {
+           createTooltip(this, 'Connect your wallet to start farming');
+        }
+     });
+
+     // 添加交易确认动画
+     function showTransactionConfirmation(hash) {
+        const confirmation = document.createElement('div');
+        confirmation.className = 'transaction-confirmation';
+        confirmation.innerHTML = `
+           <div class="confirmation-content">
+              <i class="ri-check-line"></i>
+              <p>Transaction Submitted</p>
+              <a href="https://etherscan.io/tx/${hash}" target="_blank">View on Etherscan</a>
+           </div>
+        `;
+        
+        document.body.appendChild(confirmation);
+        setTimeout(() => {
+           confirmation.classList.add('fade-out');
+           setTimeout(() => confirmation.remove(), 300);
+        }, 3000);
+     }
   </script>
 </body>
 </html> 
