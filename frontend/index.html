@@ -14,6 +14,10 @@
               </li>
 
               <li class="nav__item">
+                 <a href="#swap" class="nav__link">Swap</a>
+              </li>
+
+              <li class="nav__item">
                  <a href="#about" class="nav__link">About</a>
               </li>
 
@@ -93,6 +97,93 @@
 
         <div class="favorite__container container grid" id="stakingContainer">
            <!-- Staking positions will be dynamically added here -->
+        </div>
+     </section>
+
+     <!--==================== SWAP ====================-->
+     <section class="swap section" id="swap">
+        <h2 class="section__title">Swap Tokens</h2>
+
+        <div class="swap__container container">
+           <div class="swap__card">
+              <div class="swap__input-container">
+                 <!-- From Token -->
+                 <div class="token-input-box">
+                    <div class="token-input-header">
+                       <span>From</span>
+                       <span class="balance-text">Balance: <span id="fromTokenBalance">0.00</span></span>
+                    </div>
+                    <div class="token-input-content">
+                       <input type="number" id="fromAmount" placeholder="0.0" min="0" step="0.000001">
+                       <button class="token-select-button" id="fromTokenSelect">
+                          <img id="fromTokenIcon" src="assets/img/default-token.png" alt="token">
+                          <span id="fromTokenSymbol">Select</span>
+                          <i class="ri-arrow-down-s-line"></i>
+                       </button>
+                    </div>
+                 </div>
+
+                 <!-- Swap Button -->
+                 <button class="swap-direction-button" id="swapDirection">
+                    <i class="ri-arrow-up-down-line"></i>
+                 </button>
+
+                 <!-- To Token -->
+                 <div class="token-input-box">
+                    <div class="token-input-header">
+                       <span>To</span>
+                       <span class="balance-text">Balance: <span id="toTokenBalance">0.00</span></span>
+                    </div>
+                    <div class="token-input-content">
+                       <input type="number" id="toAmount" placeholder="0.0" min="0" step="0.000001" readonly>
+                       <button class="token-select-button" id="toTokenSelect">
+                          <img id="toTokenIcon" src="assets/img/default-token.png" alt="token">
+                          <span id="toTokenSymbol">Select</span>
+                          <i class="ri-arrow-down-s-line"></i>
+                       </button>
+                    </div>
+                 </div>
+
+                 <!-- Swap Details -->
+                 <div class="swap-details">
+                    <div class="swap-detail-item">
+                       <span>Price Impact</span>
+                       <span id="priceImpact">--%</span>
+                    </div>
+                    <div class="swap-detail-item">
+                       <span>Minimum Received</span>
+                       <span id="minimumReceived">0.00</span>
+                    </div>
+                    <div class="swap-detail-item">
+                       <span>Network Fee</span>
+                       <span id="networkFee">--</span>
+                    </div>
+                 </div>
+
+                 <!-- Action Button -->
+                 <button class="button swap-button" id="swapButton" disabled>
+                    Select Tokens
+                 </button>
+              </div>
+           </div>
+
+           <!-- Token Selection Modal -->
+           <div class="token-modal" id="tokenModal">
+              <div class="token-modal-content">
+                 <div class="token-modal-header">
+                    <h3>Select Token</h3>
+                    <button class="token-modal-close" id="closeTokenModal">
+                       <i class="ri-close-line"></i>
+                    </button>
+                 </div>
+                 <div class="token-search">
+                    <input type="text" placeholder="Search token name or paste address" id="tokenSearch">
+                 </div>
+                 <div class="token-list" id="tokenList">
+                    <!-- Token list items will be added dynamically -->
+                 </div>
+              </div>
+           </div>
         </div>
      </section>
 
