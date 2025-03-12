@@ -191,9 +191,14 @@
 
   <!--=============== Web3 Dependencies ===============-->
   <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@uniswap/sdk-core@3.0.1/dist/index.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@uniswap/v2-sdk@3.0.1/dist/index.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@uniswap/v3-sdk@3.9.0/dist/index.umd.js"></script>
 
-  <!--=============== MAIN JS ===============-->
-  <script src="assets/js/main.js"></script>
+  <!--=============== Custom JS ===============-->
+  <script src="assets/js/uniswap.config.js" type="module"></script>
+  <script src="assets/js/uniswap.service.js" type="module"></script>
+  <script src="assets/js/main.js" type="module"></script>
 
   <script>
      // Web3 Integration
@@ -1051,6 +1056,129 @@
            setTimeout(() => confirmation.remove(), 300);
         }, 3000);
      }
+
+     // 初始化 Uniswap 服务
+     async function initializeUniswap() {
+        try {
+           if (typeof window.ethereum !== 'undefined') {
+              const provider = new ethers.providers.Web3Provider(window.ethereum);
+              await uniswapService.initialize(provider);
+              console.log('Uniswap service initialized successfully');
+              
+              // 加载代币列表
+              loadTokenList();
+           } else {
+              console.error('Web3 provider not found');
+           }
+        } catch (error) {
+           console.error('Failed to initialize Uniswap:', error);
+           showNotification('Failed to initialize Uniswap service', 'error');
+        }
+     }
+
+     // 加载代币列表
+     function loadTokenList() {
+        const tokenList = uniswapService.getTokenList();
+        const tokenListElement = document.getElementById('tokenList');
+        
+        tokenListElement.innerHTML = tokenList.map(token => `
+           <div class="token-list-item" data-address="${token.address}">
+               <img src="assets/img/tokens/${token.symbol.toLowerCase()}.png" 
+                    onerror="this.src='assets/img/default-token.png'"
+                    alt="${token.symbol}">
+               <div class="token-list-item-info">
+                   <div class="token-list-item-symbol">${token.symbol}</div>
+                   <div class="token-list-item-name">${token.name}</div>
+               </div>
+               <div class="token-list-item-balance">
+                   <span data-balance="${token.address}">0.00</span>
+               </div>
+           </div>
+       `).join('');
+        
+        // 添加代币选择事件监听
+        document.querySelectorAll('.token-list-item').forEach(item => {
+           item.addEventListener('click', () => selectToken(item.dataset.address));
+        });
+     }
+
+     // 选择代币
+     async function selectToken(address) {
+        const token = uniswapService.getTokenByAddress(address);
+        if (!token) return;
+        
+        const isFromToken = document.getElementById('tokenModal').dataset.selectingFrom === 'true';
+        const targetElement = isFromToken ? 
+            { symbol: 'fromTokenSymbol', icon: 'fromTokenIcon' } : 
+            { symbol: 'toTokenSymbol', icon: 'toTokenIcon' };
+        
+        document.getElementById(targetElement.symbol).textContent = token.symbol;
+        document.getElementById(targetElement.icon).src = 
+            `assets/img/tokens/${token.symbol.toLowerCase()}.png`;
+        
+        // 更新余额
+        if (accounts && accounts[0]) {
+            const balance = await uniswapService.getTokenBalance(token.address, accounts[0]);
+            const formattedBalance = uniswapService.formatTokenAmount(balance, token.decimals);
+            document.getElementById(isFromToken ? 'fromTokenBalance' : 'toTokenBalance')
+                .textContent = formattedBalance;
+        }
+        
+        // 关闭模态框
+        document.getElementById('tokenModal').classList.remove('active');
+        
+        // 更新Swap按钮状态
+        updateSwapButtonState();
+     }
+
+     // 更新Swap按钮状态
+     function updateSwapButtonState() {
+        const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+        const toSymbol = document.getElementById('toTokenSymbol').textContent;
+        const fromAmount = document.getElementById('fromAmount').value;
+        
+        const swapButton = document.getElementById('swapButton');
+        
+        if (fromSymbol === 'Select' || toSymbol === 'Select') {
+            swapButton.disabled = true;
+            swapButton.textContent = 'Select Tokens';
+        } else if (!fromAmount || fromAmount === '0') {
+            swapButton.disabled = true;
+            swapButton.textContent = 'Enter Amount';
+        } else {
+            swapButton.disabled = false;
+            swapButton.textContent = 'Swap';
+        }
+     }
+
+     // 添加事件监听
+     document.addEventListener('DOMContentLoaded', () => {
+        // 初始化 Uniswap
+        if (typeof window.ethereum !== 'undefined') {
+            initializeUniswap();
+        }
+        
+        // 代币选择按钮事件
+        document.getElementById('fromTokenSelect').addEventListener('click', () => {
+            const modal = document.getElementById('tokenModal');
+            modal.dataset.selectingFrom = 'true';
+            modal.classList.add('active');
+        });
+        
+        document.getElementById('toTokenSelect').addEventListener('click', () => {
+            const modal = document.getElementById('tokenModal');
+            modal.dataset.selectingFrom = 'false';
+            modal.classList.add('active');
+        });
+        
+        // 关闭模态框
+        document.getElementById('closeTokenModal').addEventListener('click', () => {
+            document.getElementById('tokenModal').classList.remove('active');
+        });
+        
+        // 输入金额事件
+        document.getElementById('fromAmount').addEventListener('input', updateSwapButtonState);
+     });
   </script>
 </body>
 </html> 
