@@ -1178,7 +1178,181 @@
         
         // 输入金额事件
         document.getElementById('fromAmount').addEventListener('input', updateSwapButtonState);
+        
+        // 添加价格更新监听
+        document.getElementById('fromAmount').addEventListener('input', () => {
+            updatePrice();
+        });
+        
+        // 添加Swap按钮点击事件
+        document.getElementById('swapButton').addEventListener('click', executeSwap);
+        
+        // 添加代币选择事件
+        document.querySelectorAll('.token-list-item').forEach(item => {
+            item.addEventListener('click', () => selectToken(item.dataset.address));
+        });
      });
+
+     // 测试基础功能
+     async function runTests() {
+        try {
+            showNotification('Starting tests...', 'info');
+            
+            // 1. 测试连接
+            const connectionTest = await uniswapService.testConnection();
+            if (!connectionTest.success) {
+                throw new Error('Connection test failed');
+            }
+            showNotification('Connection test passed', 'success');
+
+            // 2. 加载代币列表
+            const tokenList = await uniswapService.loadTokenList();
+            console.log('Token list loaded:', tokenList);
+            showNotification('Token list loaded successfully', 'success');
+
+            // 3. 更新UI中的代币列表
+            updateTokenList(tokenList);
+
+            return true;
+        } catch (error) {
+            console.error('Tests failed:', error);
+            showNotification(`Tests failed: ${error.message}`, 'error');
+            return false;
+        }
+     }
+
+     // 更新代币列表UI
+     function updateTokenList(tokenList) {
+        const tokenListElement = document.getElementById('tokenList');
+        
+        tokenListElement.innerHTML = tokenList.map(token => `
+            <div class="token-list-item" data-address="${token.address}">
+                <img src="assets/img/tokens/${token.symbol.toLowerCase()}.png" 
+                     onerror="this.src='assets/img/default-token.png'"
+                     alt="${token.symbol}">
+                <div class="token-list-item-info">
+                    <div class="token-list-item-symbol">${token.symbol}</div>
+                    <div class="token-list-item-name">${token.name}</div>
+                </div>
+                <div class="token-list-item-balance">
+                    ${parseFloat(token.balance).toFixed(6)}
+                </div>
+            </div>
+        `).join('');
+     }
+
+     // 处理代币选择
+     async function selectToken(address) {
+        const token = uniswapService.getTokenByAddress(address);
+        if (!token) return;
+        
+        const isFromToken = document.getElementById('tokenModal').dataset.selectingFrom === 'true';
+        const targetElement = isFromToken ? 
+            { symbol: 'fromTokenSymbol', icon: 'fromTokenIcon' } : 
+            { symbol: 'toTokenSymbol', icon: 'toTokenIcon' };
+        
+        document.getElementById(targetElement.symbol).textContent = token.symbol;
+        document.getElementById(targetElement.icon).src = 
+            `assets/img/tokens/${token.symbol.toLowerCase()}.png`;
+        
+        // 更新余额
+        if (accounts && accounts[0]) {
+            const balance = await uniswapService.getTokenBalance(token.address, accounts[0]);
+            const formattedBalance = uniswapService.formatTokenAmount(balance, token.decimals);
+            document.getElementById(isFromToken ? 'fromTokenBalance' : 'toTokenBalance')
+                .textContent = formattedBalance;
+        }
+        
+        // 关闭模态框
+        document.getElementById('tokenModal').classList.remove('active');
+        
+        // 更新价格
+        updatePrice();
+     }
+
+     // 更新价格
+     async function updatePrice() {
+        const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+        const toSymbol = document.getElementById('toTokenSymbol').textContent;
+        const fromAmount = document.getElementById('fromAmount').value;
+        
+        if (fromSymbol === 'Select' || toSymbol === 'Select' || !fromAmount) {
+            return;
+        }
+        
+        const fromToken = Object.values(UNISWAP_CONFIG.TOKENS)
+            .find(t => t.symbol === fromSymbol);
+        const toToken = Object.values(UNISWAP_CONFIG.TOKENS)
+            .find(t => t.symbol === toSymbol);
+        
+        if (!fromToken || !toToken) return;
+        
+        try {
+            // 获取价格
+            const amountOut = await uniswapService.getTokenPrice(fromToken, toToken, fromAmount);
+            document.getElementById('toAmount').value = amountOut;
+            
+            // 计算价格影响
+            const priceImpact = uniswapService.calculatePriceImpact(fromAmount, amountOut, fromToken, toToken);
+            document.getElementById('priceImpact').textContent = `${priceImpact}%`;
+            
+            // 计算最小接收量
+            const minReceived = (parseFloat(amountOut) * (1 - UNISWAP_CONFIG.SETTINGS.SLIPPAGE_TOLERANCE / 100)).toFixed(6);
+            document.getElementById('minimumReceived').textContent = minReceived;
+            
+            // 更新Swap按钮状态
+            updateSwapButtonState();
+        } catch (error) {
+            console.error('Failed to update price:', error);
+            showNotification('Failed to get price', 'error');
+        }
+     }
+
+     // 执行兑换
+     async function executeSwap() {
+        if (isProcessing) return;
+        isProcessing = true;
+        
+        try {
+            const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+            const toSymbol = document.getElementById('toTokenSymbol').textContent;
+            const fromAmount = document.getElementById('fromAmount').value;
+            
+            const fromToken = Object.values(UNISWAP_CONFIG.TOKENS)
+                .find(t => t.symbol === fromSymbol);
+            const toToken = Object.values(UNISWAP_CONFIG.TOKENS)
+                .find(t => t.symbol === toSymbol);
+            
+            if (!fromToken || !toToken || !fromAmount) {
+                throw new Error('Invalid swap parameters');
+            }
+            
+            showNotification('Executing swap...', 'info');
+            
+            // 执行兑换
+            const tx = await uniswapService.executeSwap(
+                fromToken,
+                toToken,
+                fromAmount,
+                UNISWAP_CONFIG.SETTINGS.SLIPPAGE_TOLERANCE
+            );
+            
+            showNotification('Swap successful!', 'success');
+            
+            // 更新余额
+            await loadTokenList();
+            
+            // 清除输入
+            document.getElementById('fromAmount').value = '';
+            document.getElementById('toAmount').value = '';
+            
+        } catch (error) {
+            console.error('Swap failed:', error);
+            showNotification(`Swap failed: ${error.message}`, 'error');
+        } finally {
+            isProcessing = false;
+        }
+     }
   </script>
 </body>
 </html> 
