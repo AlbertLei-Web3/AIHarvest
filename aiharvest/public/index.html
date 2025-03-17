@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Harvest - 智能DeFi农场</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 背景效果 -->
+        <div class="background-gradient"></div>
+        
+        <!-- 导航栏 -->
+        <nav class="main-nav">
+            <div class="nav-logo">
+                <img src="https://via.placeholder.com/40" alt="AI Harvest Logo">
+                <span>AI Harvest</span>
+            </div>
+            
+            <div class="nav-links">
+                <a href="#" class="active"><i class="fas fa-home"></i> 首页</a>
+                <a href="#"><i class="fas fa-seedling"></i> 农场</a>
+                <a href="#"><i class="fas fa-robot"></i> AI 顾问</a>
+                <a href="#"><i class="fas fa-chart-line"></i> 统计</a>
+                <a href="#"><i class="fas fa-book"></i> 文档</a>
+            </div>
+            
+            <div class="wallet-btn">
+                <button class="glow-btn">
+                    <i class="fas fa-wallet"></i> 连接钱包
+                </button>
+            </div>
+        </nav>
+        
+        <!-- 主要内容区域 -->
+        <main class="content">
+            <!-- 主要信息面板 -->
+            <section class="info-panel">
+                <div class="panel-title">
+                    <h2>农场概览</h2>
+                    <span class="refresh-btn"><i class="fas fa-sync-alt"></i></span>
+                </div>
+                
+                <div class="info-cards">
+                    <!-- TVL卡片 -->
+                    <div class="info-card glass-card">
+                        <div class="card-header">
+                            <h3>总锁仓量 (TVL)</h3>
+                            <i class="fas fa-lock icon-accent"></i>
+                        </div>
+                        <div class="card-value">$1,423,985</div>
+                        <div class="card-chart">
+                            <div class="mini-chart">
+                                <div class="chart-bar" style="height: 30%;"></div>
+                                <div class="chart-bar" style="height: 50%;"></div>
+                                <div class="chart-bar" style="height: 40%;"></div>
+                                <div class="chart-bar" style="height: 70%;"></div>
+                                <div class="chart-bar" style="height: 60%;"></div>
+                                <div class="chart-bar" style="height: 90%;"></div>
+                                <div class="chart-bar" style="height: 80%;"></div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <span class="trend up">+5.2% <i class="fas fa-arrow-up"></i></span>
+                            <span class="period">24h</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 总奖励分配卡片 -->
+                    <div class="info-card glass-card">
+                        <div class="card-header">
+                            <h3>奖励分配</h3>
+                            <i class="fas fa-gift icon-accent"></i>
+                        </div>
+                        <div class="card-value">每日 25,000 TOKEN</div>
+                        <div class="allocation-chart">
+                            <div class="allocation-bar">
+                                <div class="allocation-segment" style="width: 40%; background: var(--accent-blue);" title="ETH-USDT: 40%"></div>
+                                <div class="allocation-segment" style="width: 30%; background: var(--accent-pink);" title="BTC-ETH: 30%"></div>
+                                <div class="allocation-segment" style="width: 20%; background: var(--accent-orange);" title="MATIC-USDC: 20%"></div>
+                                <div class="allocation-segment" style="width: 10%; background: #9c44dc;" title="其他: 10%"></div>
+                            </div>
+                            <div class="allocation-legend">
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background: var(--accent-blue);"></span>
+                                    <span class="legend-text">ETH-USDT: 40%</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background: var(--accent-pink);"></span>
+                                    <span class="legend-text">BTC-ETH: 30%</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background: var(--accent-orange);"></span>
+                                    <span class="legend-text">MATIC-USDC: 20%</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background: #9c44dc;"></span>
+                                    <span class="legend-text">其他: 10%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 用户状态卡片 -->
+                    <div class="info-card glass-card">
+                        <div class="card-header">
+                            <h3>我的状态</h3>
+                            <i class="fas fa-user icon-accent"></i>
+                        </div>
+                        <div class="user-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">总质押</span>
+                                <span class="stat-value">$12,540</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">待领取奖励</span>
+                                <span class="stat-value highlight">245.8 TOKEN</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">日均收益</span>
+                                <span class="stat-value">~32.6 TOKEN</span>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="small-glow-btn">
+                                <i class="fas fa-hand-holding-usd"></i> 一键收获
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 农场列表部分 -->
+            <section class="farms-section">
+                <div class="section-header">
+                    <h2>可用农场</h2>
+                    <div class="filter-options">
+                        <button class="filter-btn active">全部</button>
+                        <button class="filter-btn">高收益</button>
+                        <button class="filter-btn">稳定币</button>
+                        <button class="filter-btn">AI推荐</button>
+                    </div>
+                </div>
+                
+                <div class="farms-grid">
+                    <!-- 农场卡片1 - 带AI推荐标记 -->
+                    <div class="farm-card glass-card">
+                        <div class="ai-recommended">
+                            <i class="fas fa-robot"></i> AI推荐
+                        </div>
+                        <div class="farm-header">
+                            <div class="farm-tokens">
+                                <div class="token-icons">
+                                    <img src="https://via.placeholder.com/30" alt="ETH">
+                                    <img src="https://via.placeholder.com/30" alt="USDT">
+                                </div>
+                                <h3>ETH-USDT</h3>
+                            </div>
+                            <div class="farm-apr">
+                                <span class="apr-label">APR</span>
+                                <span class="apr-value">42.5%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="farm-details">
+                            <div class="detail-row">
+                                <span class="detail-label">分配权重</span>
+                                <span class="detail-value">40</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">总锁仓量</span>
+                                <span class="detail-value">$523,480</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">我的质押</span>
+                                <span class="detail-value">$5,230</span>
+                            </div>
+                            <div class="detail-row highlight">
+                                <span class="detail-label">待领取奖励</span>
+                                <span class="detail-value">124.5 TOKEN</span>
+                            </div>
+                        </div>
+                        
+                        <div class="farm-actions">
+                            <button class="action-btn stake-btn">
+                                <i class="fas fa-plus-circle"></i> 质押
+                            </button>
+                            <button class="action-btn withdraw-btn">
+                                <i class="fas fa-minus-circle"></i> 提取
+                            </button>
+                            <button class="action-btn harvest-btn">
+                                <i class="fas fa-gift"></i> 收获
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 农场卡片2 -->
+                    <div class="farm-card glass-card">
+                        <div class="farm-header">
+                            <div class="farm-tokens">
+                                <div class="token-icons">
+                                    <img src="https://via.placeholder.com/30" alt="BTC">
+                                    <img src="https://via.placeholder.com/30" alt="ETH">
+                                </div>
+                                <h3>BTC-ETH</h3>
+                            </div>
+                            <div class="farm-apr">
+                                <span class="apr-label">APR</span>
+                                <span class="apr-value">36.8%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="farm-details">
+                            <div class="detail-row">
+                                <span class="detail-label">分配权重</span>
+                                <span class="detail-value">30</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">总锁仓量</span>
+                                <span class="detail-value">$420,150</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">我的质押</span>
+                                <span class="detail-value">$3,750</span>
+                            </div>
+                            <div class="detail-row highlight">
+                                <span class="detail-label">待领取奖励</span>
+                                <span class="detail-value">89.2 TOKEN</span>
+                            </div>
+                        </div>
+                        
+                        <div class="farm-actions">
+                            <button class="action-btn stake-btn">
+                                <i class="fas fa-plus-circle"></i> 质押
+                            </button>
+                            <button class="action-btn withdraw-btn">
+                                <i class="fas fa-minus-circle"></i> 提取
+                            </button>
+                            <button class="action-btn harvest-btn">
+                                <i class="fas fa-gift"></i> 收获
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 农场卡片3 -->
+                    <div class="farm-card glass-card">
+                        <div class="farm-header">
+                            <div class="farm-tokens">
+                                <div class="token-icons">
+                                    <img src="https://via.placeholder.com/30" alt="MATIC">
+                                    <img src="https://via.placeholder.com/30" alt="USDC">
+                                </div>
+                                <h3>MATIC-USDC</h3>
+                            </div>
+                            <div class="farm-apr">
+                                <span class="apr-label">APR</span>
+                                <span class="apr-value">28.3%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="farm-details">
+                            <div class="detail-row">
+                                <span class="detail-label">分配权重</span>
+                                <span class="detail-value">20</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">总锁仓量</span>
+                                <span class="detail-value">$256,780</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">我的质押</span>
+                                <span class="detail-value">$3,560</span>
+                            </div>
+                            <div class="detail-row highlight">
+                                <span class="detail-label">待领取奖励</span>
+                                <span class="detail-value">32.1 TOKEN</span>
+                            </div>
+                        </div>
+                        
+                        <div class="farm-actions">
+                            <button class="action-btn stake-btn">
+                                <i class="fas fa-plus-circle"></i> 质押
+                            </button>
+                            <button class="action-btn withdraw-btn">
+                                <i class="fas fa-minus-circle"></i> 提取
+                            </button>
+                            <button class="action-btn harvest-btn">
+                                <i class="fas fa-gift"></i> 收获
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- AI投资顾问面板 -->
+            <section class="ai-advisor-section">
+                <div class="section-header">
+                    <h2>AI 投资顾问</h2>
+                    <div class="brain-animation">
+                        <div class="brain-particle"></div>
+                        <div class="brain-particle"></div>
+                        <div class="brain-particle"></div>
+                        <div class="brain-particle"></div>
+                        <div class="brain-particle"></div>
+                    </div>
+                </div>
+                
+                <div class="ai-advisor-container">
+                    <!-- AI聊天界面 -->
+                    <div class="ai-chat glass-card">
+                        <div class="chat-header">
+                            <h3><i class="fas fa-robot"></i> AI 助手</h3>
+                            <span class="status-indicator">在线</span>
+                        </div>
+                        
+                        <div class="chat-messages">
+                            <div class="message ai-message">
+                                <div class="message-content">
+                                    <p>您好！我是您的AI投资顾问。根据市场分析，今天ETH-USDT池表现优异，建议增加质押。有什么可以帮您的吗？</p>
+                                </div>
+                                <div class="message-time">10:25 AM</div>
+                            </div>
+                            
+                            <div class="message user-message">
+                                <div class="message-content">
+                                    <p>我应该如何优化我当前的投资组合？</p>
+                                </div>
+                                <div class="message-time">10:26 AM</div>
+                            </div>
+                            
+                            <div class="message ai-message">
+                                <div class="message-content">
+                                    <p>分析您当前的投资组合，建议：</p>
+                                    <ul>
+                                        <li>增加ETH-USDT池质押比例至50%</li>
+                                        <li>保持BTC-ETH池在30%</li>
+                                        <li>将MATIC-USDC比例降至20%</li>
+                                    </ul>
+                                    <p>这样可以在当前市场条件下优化收益与风险比率。</p>
+                                </div>
+                                <div class="message-time">10:27 AM</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input">
+                            <input type="text" placeholder="输入您的问题...">
+                            <button class="send-btn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 投资分析板块 -->
+                    <div class="investment-analysis">
+                        <!-- 市场趋势分析 -->
+                        <div class="analysis-card glass-card">
+                            <div class="card-header">
+                                <h3>市场趋势分析</h3>
+                                <i class="fas fa-chart-line icon-accent"></i>
+                            </div>
+                            
+                            <div class="trend-chart">
+                                <img src="https://via.placeholder.com/450x200" alt="市场趋势图表" class="trend-img">
+                            </div>
+                            
+                            <div class="trend-summary">
+                                <div class="trend-item up">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>ETH 看涨趋势，预计30天内上涨8-12%</span>
+                                </div>
+                                <div class="trend-item stable">
+                                    <i class="fas fa-minus"></i>
+                                    <span>BTC 稳定区间，横盘整理</span>
+                                </div>
+                                <div class="trend-item down">
+                                    <i class="fas fa-arrow-down"></i>
+                                    <span>MATIC 短期调整，建议观望</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 投资组合建议 -->
+                        <div class="analysis-card glass-card">
+                            <div class="card-header">
+                                <h3>个性化投资组合</h3>
+                                <i class="fas fa-briefcase icon-accent"></i>
+                            </div>
+                            
+                            <div class="portfolio-recommendation">
+                                <div class="portfolio-chart">
+                                    <div class="portfolio-segment" style="height: 50%; background: var(--accent-blue);">
+                                        <span>ETH-USDT<br>50%</span>
+                                    </div>
+                                    <div class="portfolio-segment" style="height: 30%; background: var(--accent-pink);">
+                                        <span>BTC-ETH<br>30%</span>
+                                    </div>
+                                    <div class="portfolio-segment" style="height: 20%; background: var(--accent-orange);">
+                                        <span>MATIC-USDC<br>20%</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="portfolio-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-title">预期年化收益</span>
+                                        <span class="stat-value">38.2%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-title">风险评级</span>
+                                        <span class="stat-value">中等</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-title">波动预期</span>
+                                        <span class="stat-value">±12%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button class="apply-btn small-glow-btn">
+                                <i class="fas fa-magic"></i> 一键优化
+                            </button>
+                        </div>
+                        
+                        <!-- AI信号指标 -->
+                        <div class="analysis-card glass-card signal-card">
+                            <div class="card-header">
+                                <h3>AI 信号指标</h3>
+                                <i class="fas fa-signal icon-accent"></i>
+                            </div>
+                            
+                            <div class="signals-grid">
+                                <div class="signal-item buy">
+                                    <div class="signal-token">ETH-USDT</div>
+                                    <div class="signal-indicator">
+                                        <i class="fas fa-arrow-circle-up"></i> 买入
+                                    </div>
+                                    <div class="signal-confidence">置信度: 92%</div>
+                                </div>
+                                
+                                <div class="signal-item hold">
+                                    <div class="signal-token">BTC-ETH</div>
+                                    <div class="signal-indicator">
+                                        <i class="fas fa-dot-circle"></i> 持有
+                                    </div>
+                                    <div class="signal-confidence">置信度: 87%</div>
+                                </div>
+                                
+                                <div class="signal-item sell">
+                                    <div class="signal-token">MATIC-USDC</div>
+                                    <div class="signal-indicator">
+                                        <i class="fas fa-arrow-circle-down"></i> 减仓
+                                    </div>
+                                    <div class="signal-confidence">置信度: 76%</div>
+                                </div>
+                                
+                                <div class="signal-item watch">
+                                    <div class="signal-token">DOGE-USDT</div>
+                                    <div class="signal-indicator">
+                                        <i class="fas fa-eye"></i> 观察
+                                    </div>
+                                    <div class="signal-confidence">置信度: 65%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 创建农场面板 (仅管理员可见) -->
+            <section class="create-farm-section admin-only">
+                <div class="admin-badge">
+                    <i class="fas fa-shield-alt"></i> 管理员专用
+                </div>
+                
+                <div class="section-header">
+                    <h2>创建新农场</h2>
+                </div>
+                
+                <div class="create-farm-container glass-card">
+                    <div class="form-description">
+                        <p>通过此表单创建新的质押农场。设置奖励代币、奖励速率和开始时间。</p>
+                    </div>
+                    
+                    <form class="create-farm-form">
+                        <div class="form-group">
+                            <label for="reward-token">奖励代币地址</label>
+                            <div class="input-group">
+                                <input type="text" id="reward-token" placeholder="输入ERC20代币合约地址">
+                                <button type="button" class="input-action-btn">
+                                    <i class="fas fa-paste"></i>
+                                </button>
+                            </div>
+                            <div class="input-helper">输入有效的ERC20代币合约地址，作为农场奖励</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="reward-rate">奖励速率 (每秒)</label>
+                            <div class="input-group">
+                                <input type="number" id="reward-rate" placeholder="例如: 0.01">
+                                <span class="input-suffix">TOKEN/秒</span>
+                            </div>
+                            <div class="input-helper">设置每秒发放的奖励代币数量</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="start-time">开始时间</label>
+                            <div class="input-group">
+                                <input type="datetime-local" id="start-time">
+                            </div>
+                            <div class="input-helper">选择农场开始时间，必须是未来时间</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="ai-optimization">AI优化建议</label>
+                            <div class="ai-recommendation glass-card">
+                                <div class="ai-recomm-header">
+                                    <i class="fas fa-robot"></i> AI建议
+                                </div>
+                                <div class="ai-recomm-content">
+                                    <p>当前市场状况下，建议：</p>
+                                    <ul>
+                                        <li>奖励速率: <strong>0.015 TOKEN/秒</strong></li>
+                                        <li>预期APR: <strong>约32%</strong></li>
+                                        <li>建议LP池: <strong>ETH-USDT</strong></li>
+                                    </ul>
+                                </div>
+                                <button type="button" class="small-glow-btn">
+                                    <i class="fas fa-magic"></i> 应用AI建议
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="glow-btn create-btn">
+                                <i class="fas fa-plus-circle"></i> 创建农场
+                            </button>
+                            <button type="button" class="cancel-btn">
+                                取消
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+            
+            <!-- 用户仪表盘 -->
+            <section class="user-dashboard-section">
+                <div class="section-header">
+                    <h2>我的投资仪表盘</h2>
+                    <button class="refresh-dashboard-btn">
+                        <i class="fas fa-sync-alt"></i> 刷新数据
+                    </button>
+                </div>
+                
+                <div class="dashboard-container">
+                    <!-- 用户投资概览 -->
+                    <div class="dashboard-summary glass-card">
+                        <div class="card-header">
+                            <h3>投资组合概览</h3>
+                            <i class="fas fa-chart-pie icon-accent"></i>
+                        </div>
+                        
+                        <div class="portfolio-overview">
+                            <div class="portfolio-donut-chart">
+                                <div class="donut-chart">
+                                    <div class="donut-segment" style="--segment-start: 0; --segment-end: 180deg; --segment-color: var(--accent-blue);" data-value="50%"></div>
+                                    <div class="donut-segment" style="--segment-start: 180deg; --segment-end: 288deg; --segment-color: var(--accent-pink);" data-value="30%"></div>
+                                    <div class="donut-segment" style="--segment-start: 288deg; --segment-end: 360deg; --segment-color: var(--accent-orange);" data-value="20%"></div>
+                                    <div class="donut-hole"></div>
+                                    <div class="donut-center">
+                                        <div class="donut-total">$12,540</div>
+                                        <div class="donut-label">总投资</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="portfolio-details">
+                                <div class="portfolio-item">
+                                    <div class="item-color" style="background: var(--accent-blue);"></div>
+                                    <div class="item-info">
+                                        <div class="item-name">ETH-USDT</div>
+                                        <div class="item-value">$6,270 (50%)</div>
+                                    </div>
+                                </div>
+                                <div class="portfolio-item">
+                                    <div class="item-color" style="background: var(--accent-pink);"></div>
+                                    <div class="item-info">
+                                        <div class="item-name">BTC-ETH</div>
+                                        <div class="item-value">$3,762 (30%)</div>
+                                    </div>
+                                </div>
+                                <div class="portfolio-item">
+                                    <div class="item-color" style="background: var(--accent-orange);"></div>
+                                    <div class="item-info">
+                                        <div class="item-name">MATIC-USDC</div>
+                                        <div class="item-value">$2,508 (20%)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- AI分析的投资表现 -->
+                    <div class="performance-analysis glass-card">
+                        <div class="card-header">
+                            <h3>AI分析的投资表现</h3>
+                            <i class="fas fa-robot icon-accent"></i>
+                        </div>
+                        
+                        <div class="performance-chart">
+                            <img src="https://via.placeholder.com/600x250" alt="投资表现图表" class="performance-img">
+                        </div>
+                        
+                        <div class="performance-metrics">
+                            <div class="metric-item">
+                                <div class="metric-value up">+18.7%</div>
+                                <div class="metric-label">总收益率</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value">$1,958</div>
+                                <div class="metric-label">总收益额</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value">32.6%</div>
+                                <div class="metric-label">年化收益</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 个性化优化建议 -->
+                    <div class="optimization-advice glass-card">
+                        <div class="card-header">
+                            <h3>个性化优化建议</h3>
+                            <i class="fas fa-lightbulb icon-accent"></i>
+                        </div>
+                        
+                        <div class="advice-list">
+                            <div class="advice-item">
+                                <div class="advice-icon">
+                                    <i class="fas fa-arrow-up"></i>
+                                </div>
+                                <div class="advice-content">
+                                    <div class="advice-title">增加ETH-USDT池</div>
+                                    <div class="advice-description">根据当前市场趋势，建议将ETH-USDT池比例从50%增加到60%</div>
+                                </div>
+                                <button class="apply-advice-btn">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
+                            <div class="advice-item">
+                                <div class="advice-icon">
+                                    <i class="fas fa-arrow-down"></i>
+                                </div>
+                                <div class="advice-content">
+                                    <div class="advice-title">减少MATIC-USDC池</div>
+                                    <div class="advice-description">MATIC预计短期调整，建议减少比例至10%以规避波动</div>
+                                </div>
+                                <button class="apply-advice-btn">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
+                            <div class="advice-item">
+                                <div class="advice-icon">
+                                    <i class="fas fa-plus"></i>
+                                </div>
+                                <div class="advice-content">
+                                    <div class="advice-title">考虑新的流动性池</div>
+                                    <div class="advice-description">SOL-USDT池展现出良好潜力，建议配置小比例测试</div>
+                                </div>
+                                <button class="apply-advice-btn">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 投资历史与回报表格 -->
+                    <div class="investment-history glass-card">
+                        <div class="card-header">
+                            <h3>投资历史与回报</h3>
+                            <i class="fas fa-history icon-accent"></i>
+                        </div>
+                        
+                        <div class="history-table-container">
+                            <table class="history-table">
+                                <thead>
+                                    <tr>
+                                        <th>农场</th>
+                                        <th>操作</th>
+                                        <th>数量</th>
+                                        <th>价值</th>
+                                        <th>日期</th>
+                                        <th>收益</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>ETH-USDT</td>
+                                        <td class="operation-deposit">质押</td>
+                                        <td>2.5 LP</td>
+                                        <td>$3,750</td>
+                                        <td>2023-10-15</td>
+                                        <td>+$320</td>
+                                    </tr>
+                                    <tr>
+                                        <td>BTC-ETH</td>
+                                        <td class="operation-deposit">质押</td>
+                                        <td>1.2 LP</td>
+                                        <td>$2,400</td>
+                                        <td>2023-10-10</td>
+                                        <td>+$185</td>
+                                    </tr>
+                                    <tr>
+                                        <td>MATIC-USDC</td>
+                                        <td class="operation-withdraw">提取</td>
+                                        <td>5.0 LP</td>
+                                        <td>$1,000</td>
+                                        <td>2023-10-05</td>
+                                        <td>+$42</td>
+                                    </tr>
+                                    <tr>
+                                        <td>ETH-USDT</td>
+                                        <td class="operation-harvest">收获</td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>2023-10-01</td>
+                                        <td>+$145</td>
+                                    </tr>
+                                    <tr>
+                                        <td>BTC-ETH</td>
+                                        <td class="operation-deposit">质押</td>
+                                        <td>0.8 LP</td>
+                                        <td>$1,600</td>
+                                        <td>2023-09-28</td>
+                                        <td>+$110</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="history-footer">
+                            <button class="view-all-btn">
+                                查看全部历史 <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- JavaScript文件 -->
+    <script src="js/main.js"></script>
+</body>
+</html> 
