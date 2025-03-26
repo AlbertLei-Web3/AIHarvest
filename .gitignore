@@ -1,2 +1,120 @@
-agentkit/
+# Node modules
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build files
+build/
+dist/
+coverage/
+*.tsbuildinfo
+frontend-react/build/
+
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Hardhat files
+cache/
+artifacts/
+typechain/
+typechain-types/
+
+# Testing
+coverage/
+coverage.json
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.swp
+*.swo
+.temp/
+
+# 依赖
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# 测试
+# Testing
+/coverage
+
+# 生产
+# Production
+/build
+/dist
+
+# 环境变量
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 编辑器
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 操作系统
+# OS
+.DS_Store
+Thumbs.db
+
+# 合约相关
+# Contract related
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Hardhat
+.hardhat/
+
+# Truffle
+.truffle-contract/
+
+# Remix
+.remix/
+
+# Tenderly
+.tenderly/
+
+# Foundry
+out/
+cache/
+
+# frontend/react specific
+.firebase/
+.firebaserc
+firebase-debug.log

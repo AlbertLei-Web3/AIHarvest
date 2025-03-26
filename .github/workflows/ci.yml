@@ -1,0 +1,108 @@
+name: AI Harvest CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  smart-contract-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: aiharvest/package-lock.json
+      
+      - name: Install dependencies
+        run: cd aiharvest && npm ci
+      
+      - name: Compile contracts
+        run: cd aiharvest && npx hardhat compile
+      
+      - name: Run tests
+        run: cd aiharvest && npx hardhat test
+      
+      - name: Run contract coverage
+        run: cd aiharvest && npx hardhat coverage
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./aiharvest/coverage/
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: frontend-react/package-lock.json
+      
+      - name: Install dependencies
+        run: cd frontend-react && npm ci
+      
+      - name: Run linting
+        run: cd frontend-react && npm run lint
+      
+      - name: Run tests
+        run: cd frontend-react && npm test
+      
+      - name: Build
+        run: cd frontend-react && npm run build
+
+  deploy-testnet:
+    needs: [smart-contract-test, frontend-test]
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+      
+      - name: Install dependencies
+        run: cd aiharvest && npm ci
+      
+      - name: Deploy to testnet
+        run: cd aiharvest && npx hardhat run scripts/deploy.js --network goerli
+        env:
+          PRIVATE_KEY: ${{ secrets.DEPLOY_PRIVATE_KEY }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+          INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+
+  deploy-production:
+    needs: [smart-contract-test, frontend-test]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+      
+      - name: Build frontend
+        run: |
+          cd frontend-react
+          npm ci
+          npm run build
+      
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v2
+        with:
+          publish-dir: './frontend-react/build'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }} 
