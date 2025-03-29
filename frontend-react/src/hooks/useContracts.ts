@@ -11,11 +11,8 @@ import {
   FarmData
 } from '../types';
 
-// Network configuration
-const NETWORK_CONFIG = {
-  // These addresses would come from your deployment
-  FACTORY_ADDRESS: '0x0000000000000000000000000000000000000000', // Replace with actual address
-};
+// Get environment variables or use defaults
+const FACTORY_ADDRESS = process.env.REACT_APP_FACTORY_ADDRESS || '0xE86cD948176C121C8AD25482F6Af3B1BC3F527Df';
 
 interface UseContractsReturn {
   factoryContract: ethers.Contract | null;
@@ -27,10 +24,15 @@ interface UseContractsReturn {
   getUserInfo: (pid: number, userAddress: string) => Promise<UserInfo | null>;
   getTokenInfo: (tokenAddress: string) => Promise<TokenInfo | null>;
   getRewardToken: () => Promise<string | null>;
+  // Add factory and token symbol functions used in Farms component
+  factory: ethers.Contract | null;
+  getStakingTokenSymbol: (address: string) => Promise<string>;
+  getRewardTokenSymbol: (address: string) => Promise<string>;
   deposit: (pid: number, amount: string) => Promise<ethers.ContractTransaction | null>;
   withdraw: (pid: number, amount: string) => Promise<ethers.ContractTransaction | null>;
   compound: (pid: number) => Promise<ethers.ContractTransaction | null>;
   createFarm: (rewardToken: string, rewardPerSecond: string, startTime: number) => Promise<ethers.ContractTransaction | null>;
+  getPendingReward: (pid: number, userAddress: string) => Promise<string>;
   isLoading: boolean;
   error: string | null;
 }
@@ -44,10 +46,10 @@ const useContracts = (): UseContractsReturn => {
 
   // Initialize factory contract
   useEffect(() => {
-    if (provider && NETWORK_CONFIG.FACTORY_ADDRESS) {
+    if (provider && FACTORY_ADDRESS) {
       try {
         const contract = new ethers.Contract(
-          NETWORK_CONFIG.FACTORY_ADDRESS,
+          FACTORY_ADDRESS,
           FACTORY_ABI,
           provider
         );
@@ -92,6 +94,30 @@ const useContracts = (): UseContractsReturn => {
     }
   }, [provider]);
 
+  // Get token symbol - needed for Farms component
+  const getStakingTokenSymbol = async (address: string): Promise<string> => {
+    try {
+      const tokenContract = getTokenContract(address);
+      if (!tokenContract) return '';
+      return await tokenContract.symbol();
+    } catch (err) {
+      console.error('Error getting staking token symbol:', err);
+      return '';
+    }
+  };
+
+  // Get reward token symbol - needed for Farms component
+  const getRewardTokenSymbol = async (address: string): Promise<string> => {
+    try {
+      const tokenContract = getTokenContract(address);
+      if (!tokenContract) return '';
+      return await tokenContract.symbol();
+    } catch (err) {
+      console.error('Error getting reward token symbol:', err);
+      return '';
+    }
+  };
+
   // Get farm data
   const getFarmData = async (): Promise<FarmData | null> => {
     if (!farmContract) return null;
@@ -99,20 +125,18 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      const [rewardToken, rewardPerSecond, startTime, endTime, totalAllocPoint] = await Promise.all([
+      // Use a simplified version that matches our contract interface
+      const [rewardToken, rewardRate] = await Promise.all([
         farmContract.rewardToken(),
-        farmContract.rewardPerSecond(),
-        farmContract.startTime(),
-        farmContract.endTime(),
-        farmContract.totalAllocPoint(),
+        farmContract.rewardRate(),
       ]);
       
       return {
         rewardToken,
-        rewardPerSecond: ethers.utils.formatEther(rewardPerSecond),
-        startTime: startTime.toNumber(),
-        endTime: endTime.toNumber(),
-        totalAllocPoint: totalAllocPoint.toNumber(),
+        rewardPerSecond: ethers.utils.formatEther(rewardRate),
+        startTime: Math.floor(Date.now() / 1000), // Mock value
+        endTime: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // Mock value: 30 days from now
+        totalAllocPoint: 100, // Mock value
       };
     } catch (err: any) {
       console.error('Error getting farm data:', err);
@@ -123,55 +147,45 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
-  // Get pools
+  // Get pools - updated to match our PoolInfo interface
   const getPools = async (): Promise<PoolInfo[]> => {
     if (!farmContract) return [];
     setIsLoading(true);
     setError(null);
     
     try {
-      const poolLength = await farmContract.poolLength();
-      const pools: PoolInfo[] = [];
+      // In this simplified version, we mock a single pool
+      const stakingTokenAddress = await farmContract.stakingToken();
+      const rewardTokenAddress = await farmContract.rewardToken();
+      const totalStaked = await farmContract.totalStaked();
+      const rewardRate = await farmContract.rewardRate();
       
-      for (let i = 0; i < poolLength; i++) {
-        const poolInfo = await farmContract.poolInfo(i);
-        
-        // Get token info
-        const lpToken = getTokenContract(poolInfo.lpToken);
-        if (!lpToken) continue;
-        
-        const [name, symbol, decimals, totalSupply] = await Promise.all([
-          lpToken.name(),
-          lpToken.symbol(),
-          lpToken.decimals(),
-          lpToken.totalSupply(),
-        ]);
-        
-        // Calculate total staked
-        const balance = await lpToken.balanceOf(farmContract.address);
-        
-        // Get APR (simplified calculation)
-        const farmData = await getFarmData();
-        const apr = farmData ? calculateAPR(
-          farmData.rewardPerSecond,
-          farmData.totalAllocPoint,
-          poolInfo.allocPoint.toNumber(),
-          ethers.utils.formatUnits(balance, decimals)
-        ) : 0;
-        
-        pools.push({
-          lpToken: poolInfo.lpToken,
-          allocPoint: poolInfo.allocPoint.toNumber(),
-          lastRewardTime: poolInfo.lastRewardTime.toNumber(),
-          accRewardPerShare: poolInfo.accRewardPerShare.toNumber(),
-          name,
-          symbol,
-          totalStaked: ethers.utils.formatUnits(balance, decimals),
-          apr,
-        });
-      }
+      // Get token info
+      const stakingToken = getTokenContract(stakingTokenAddress);
+      if (!stakingToken) return [];
       
-      return pools;
+      const [name, symbol, decimals] = await Promise.all([
+        stakingToken.name(),
+        stakingToken.symbol(),
+        stakingToken.decimals(),
+      ]);
+      
+      // Calculate APR (simplified)
+      const apr = "12.5"; // Mock value
+      
+      const pool: PoolInfo = {
+        id: 0,
+        stakingToken: stakingTokenAddress,
+        rewardToken: rewardTokenAddress,
+        totalStaked: ethers.utils.formatUnits(totalStaked, decimals),
+        rewardRate: ethers.utils.formatUnits(rewardRate, decimals),
+        apr,
+        name,
+        symbol,
+        lpToken: stakingTokenAddress, // For backward compatibility
+      };
+      
+      return [pool];
     } catch (err: any) {
       console.error('Error getting pools:', err);
       setError('Failed to get pools');
@@ -181,24 +195,29 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
-  // Get user info
+  // Get user info - updated to match our UserInfo interface
   const getUserInfo = async (pid: number, userAddress: string): Promise<UserInfo | null> => {
     if (!farmContract) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      const [userInfo, pendingReward] = await Promise.all([
-        farmContract.userInfo(pid, userAddress),
-        farmContract.pendingReward(pid, userAddress),
+      // In this simplified version, we just get user info from the contract
+      const [userInfoData, pendingReward] = await Promise.all([
+        farmContract.getUserInfo(userAddress),
+        farmContract.getPendingReward(userAddress),
       ]);
       
-      return {
-        amount: ethers.utils.formatEther(userInfo.amount),
-        rewardDebt: ethers.utils.formatEther(userInfo.rewardDebt),
-        unlockTime: userInfo.unlockTime.toNumber(),
-        pendingRewards: ethers.utils.formatEther(pendingReward),
+      // userInfoData is expected to be an array with [amount, rewardDebt]
+      const userInfoResult: UserInfo = {
+        amount: ethers.utils.formatEther(userInfoData[0]),
+        rewardDebt: ethers.utils.formatEther(userInfoData[1]),
+        pendingReward: ethers.utils.formatEther(pendingReward),
+        pendingRewards: ethers.utils.formatEther(pendingReward), // Alias for compatibility
+        unlockTime: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // Mock value: 7 days from now
       };
+      
+      return userInfoResult;
     } catch (err: any) {
       console.error('Error getting user info:', err);
       setError('Failed to get user info');
@@ -254,31 +273,17 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
-  // Deposit
+  // Deposit tokens
   const deposit = async (pid: number, amount: string): Promise<ethers.ContractTransaction | null> => {
-    if (!farmContract || !signer || !isConnected) return null;
+    if (!farmContract || !signer) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      // Get pool info to know which token to approve
-      const poolInfo = await farmContract.poolInfo(pid);
-      const lpToken = getTokenContract(poolInfo.lpToken);
-      if (!lpToken) throw new Error('LP token contract not found');
-      
-      // Connect with signer for transactions
-      const lpTokenWithSigner = lpToken.connect(signer);
-      const farmWithSigner = farmContract.connect(signer);
-      
-      // Convert amount to wei
-      const amountWei = ethers.utils.parseEther(amount);
-      
-      // Approve tokens first
-      const approvalTx = await lpTokenWithSigner.approve(farmContract.address, amountWei);
-      await approvalTx.wait();
-      
-      // Now deposit
-      const tx = await farmWithSigner.deposit(pid, amountWei);
+      // For simplicity, ignoring pid as our contract has a single pool
+      const tx = await farmContract.connect(signer).stake(
+        ethers.utils.parseEther(amount)
+      );
       return tx;
     } catch (err: any) {
       console.error('Error depositing:', err);
@@ -289,17 +294,17 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
-  // Withdraw
+  // Withdraw tokens
   const withdraw = async (pid: number, amount: string): Promise<ethers.ContractTransaction | null> => {
-    if (!farmContract || !signer || !isConnected) return null;
+    if (!farmContract || !signer) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      const farmWithSigner = farmContract.connect(signer);
-      const amountWei = ethers.utils.parseEther(amount);
-      
-      const tx = await farmWithSigner.withdraw(pid, amountWei);
+      // For simplicity, ignoring pid as our contract has a single pool
+      const tx = await farmContract.connect(signer).withdraw(
+        ethers.utils.parseEther(amount)
+      );
       return tx;
     } catch (err: any) {
       console.error('Error withdrawing:', err);
@@ -310,15 +315,15 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
-  // Compound
+  // Compound rewards
   const compound = async (pid: number): Promise<ethers.ContractTransaction | null> => {
-    if (!farmContract || !signer || !isConnected) return null;
+    if (!farmContract || !signer) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      const farmWithSigner = farmContract.connect(signer);
-      const tx = await farmWithSigner.compound(pid);
+      // For simplicity, ignoring pid as our contract has a single pool
+      const tx = await farmContract.connect(signer).compound();
       return tx;
     } catch (err: any) {
       console.error('Error compounding:', err);
@@ -329,26 +334,22 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
-  // Create farm
+  // Create a new farm
   const createFarm = async (
     rewardToken: string, 
     rewardPerSecond: string, 
     startTime: number
   ): Promise<ethers.ContractTransaction | null> => {
-    if (!factoryContract || !signer || !isConnected) return null;
+    if (!factoryContract || !signer) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      const factoryWithSigner = factoryContract.connect(signer);
-      const rewardPerSecondWei = ethers.utils.parseEther(rewardPerSecond);
-      
-      const tx = await factoryWithSigner.createFarm(
+      const tx = await factoryContract.connect(signer).createFarm(
         rewardToken,
-        rewardPerSecondWei,
+        ethers.utils.parseEther(rewardPerSecond),
         startTime
       );
-      
       return tx;
     } catch (err: any) {
       console.error('Error creating farm:', err);
@@ -359,24 +360,23 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
-  // Helper function to calculate APR
-  const calculateAPR = (
-    rewardPerSecond: string,
-    totalAllocPoint: number,
-    poolAllocPoint: number,
-    totalStaked: string
-  ): number => {
-    if (totalAllocPoint === 0 || parseFloat(totalStaked) === 0) return 0;
+  // Get pending reward
+  const getPendingReward = async (pid: number, userAddress: string): Promise<string> => {
+    if (!farmContract) return '0';
+    setIsLoading(true);
+    setError(null);
     
-    // Daily rewards for this pool
-    const poolRewardPerSecond = parseFloat(rewardPerSecond) * (poolAllocPoint / totalAllocPoint);
-    const dailyRewards = poolRewardPerSecond * 86400; // 86400 seconds in a day
-    
-    // Annual rewards
-    const annualRewards = dailyRewards * 365;
-    
-    // APR = (Annual Rewards / Total Staked) * 100
-    return (annualRewards / parseFloat(totalStaked)) * 100;
+    try {
+      // For simplicity, ignoring pid as our contract has a single pool
+      const pendingReward = await farmContract.getPendingReward(userAddress);
+      return ethers.utils.formatEther(pendingReward);
+    } catch (err: any) {
+      console.error('Error getting pending reward:', err);
+      setError(err.message || 'Failed to get pending reward');
+      return '0';
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return {
@@ -389,10 +389,14 @@ const useContracts = (): UseContractsReturn => {
     getUserInfo,
     getTokenInfo,
     getRewardToken,
+    factory: factoryContract, // Alias for compatibility with Farms component
+    getStakingTokenSymbol,
+    getRewardTokenSymbol,
     deposit,
     withdraw,
     compound,
     createFarm,
+    getPendingReward,
     isLoading,
     error,
   };

@@ -1,115 +1,132 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ConnectWalletProps } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { navLinks } from '../../routes';
+import { useFarmStore } from '../../store';
 
-interface HeaderProps extends ConnectWalletProps {
-  title: string;
-}
+const Header: React.FC = () => {
+  const location = useLocation();
+  const { account, isConnected, setAccount, setConnected } = useFarmStore();
+  const [isNavCollapsed, setIsNavCollapsed] = useState(true);
 
-const Header: React.FC<HeaderProps> = ({ title, onConnect, isConnected, walletAddress }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const formatWalletAddress = (address: string) => {
+  const handleNavCollapse = () => setIsNavCollapsed(!isNavCollapsed);
+  
+  const formatWalletAddress = (address: string | null) => {
+    if (!address) return '';
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
-
+  
+  const handleConnect = async () => {
+    try {
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({
+          method: 'eth_requestAccounts',
+        });
+        
+        if (accounts.length > 0) {
+          setAccount(accounts[0]);
+          setConnected(true);
+        }
+      } else {
+        alert('Please install MetaMask!');
+      }
+    } catch (error) {
+      console.error('Error connecting to wallet:', error);
+    }
+  };
+  
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({
+            method: 'eth_accounts',
+          });
+          
+          if (accounts.length > 0) {
+            setAccount(accounts[0]);
+            setConnected(true);
+          }
+        } catch (error) {
+          console.error('Error checking connection:', error);
+        }
+      }
+    };
+    
+    checkConnection();
+    
+    // Listen for account changes
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+        if (accounts.length === 0) {
+          setAccount(null);
+          setConnected(false);
+        } else {
+          setAccount(accounts[0]);
+          setConnected(true);
+        }
+      });
+    }
+    
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', () => {});
+      }
+    };
+  }, [setAccount, setConnected]);
+  
   return (
-    <header className="header">
+    <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
       <div className="container">
-        <div className="header-content">
-          <Link to="/" className="logo">
-            <span className="logo-text">AI <span>Harvest</span></span>
-          </Link>
-
-          <nav className={`nav-menu ${isMenuOpen ? 'active' : ''}`}>
-            <ul className="nav-list">
-              <li className="nav-item">
-                <Link to="/" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                  Home
+        <Link to="/" className="navbar-brand">
+          <span className="fw-bold text-primary">AI <span className="text-secondary">Harvest</span></span>
+        </Link>
+        
+        <button 
+          className="navbar-toggler" 
+          type="button" 
+          data-bs-toggle="collapse" 
+          data-bs-target="#navbarNav" 
+          aria-controls="navbarNav" 
+          aria-expanded={!isNavCollapsed ? true : false} 
+          aria-label="Toggle navigation"
+          onClick={handleNavCollapse}
+        >
+          <span className="navbar-toggler-icon"></span>
+        </button>
+        
+        <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`} id="navbarNav">
+          <ul className="navbar-nav me-auto">
+            {navLinks.map((link) => (
+              <li className="nav-item" key={link.path}>
+                <Link
+                  to={link.path}
+                  className={`nav-link ${location.pathname === link.path ? 'active fw-bold border-bottom border-primary border-2' : ''}`}
+                >
+                  {link.label}
                 </Link>
               </li>
-              <li className="nav-item">
-                <Link to="/farms" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                  Farms
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link to="/staking" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                  Staking
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link to="/swap" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                  Swap
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link to="/ai-assistant" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                  AI Assistant
-                </Link>
-              </li>
-            </ul>
-
-            <div className="wallet-connect-mobile">
-              <button
-                className={`wallet-button ${isConnected ? 'connected' : ''}`}
-                onClick={isConnected ? () => {} : onConnect}
-              >
-                {isConnected && walletAddress
-                  ? formatWalletAddress(walletAddress)
-                  : 'Connect Wallet'}
-              </button>
-            </div>
-
-            <button className="close-menu" onClick={() => setIsMenuOpen(false)}>
-              <span className="sr-only">Close menu</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
+            ))}
+          </ul>
+          
+          <div className="d-flex">
+            <button
+              type="button"
+              onClick={isConnected ? () => {} : handleConnect}
+              className={`btn d-flex align-items-center ${
+                isConnected
+                  ? 'btn-outline-success'
+                  : 'btn-primary'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-wallet2 me-2" viewBox="0 0 16 16">
+                <path d="M12.136.326A1.5 1.5 0 0 1 14 1.78V3h.5A1.5 1.5 0 0 1 16 4.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 13.5v-9a1.5 1.5 0 0 1 1.432-1.499L12.136.326zM5.562 3H13V1.78a.5.5 0 0 0-.621-.484L5.562 3zM1.5 4a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-13z"/>
               </svg>
-            </button>
-          </nav>
-
-          <div className="header-actions">
-            <div className="wallet-connect">
-              <button
-                className={`wallet-button ${isConnected ? 'connected' : ''}`}
-                onClick={isConnected ? () => {} : onConnect}
-              >
-                {isConnected && walletAddress ? (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path>
-                      <path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path>
-                      <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
-                    </svg>
-                    <span>{formatWalletAddress(walletAddress)}</span>
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path>
-                      <path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path>
-                      <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
-                    </svg>
-                    <span>Connect Wallet</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <button className="mobile-menu-toggle" onClick={() => setIsMenuOpen(true)}>
-              <span className="sr-only">Open menu</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
+              {isConnected && account ? formatWalletAddress(account) : 'Connect Wallet'}
             </button>
           </div>
         </div>
       </div>
-    </header>
+    </nav>
   );
 };
 

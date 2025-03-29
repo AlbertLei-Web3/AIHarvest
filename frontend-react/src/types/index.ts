@@ -7,12 +7,17 @@ export interface PoolInfo {
   rewardRate: string;
   apr: string;
   name?: string;
+  symbol?: string;
+  rewardSymbol?: string;
+  lpToken?: string;
 }
 
 export interface UserInfo {
   amount: string;
   rewardDebt: string;
   pendingReward: string;
+  pendingRewards?: string;
+  unlockTime?: number;
 }
 
 export interface FarmData {
@@ -33,7 +38,7 @@ export interface ConnectWalletProps {
 export interface FarmCardProps {
   poolId: number;
   poolInfo: PoolInfo;
-  userInfo?: UserInfo;
+  userInfo: UserInfo | null;
   onDeposit: (pid: number, amount: string) => Promise<void>;
   onWithdraw: (pid: number, amount: string) => Promise<void>;
   onCompound: (pid: number) => Promise<void>;
@@ -54,11 +59,10 @@ export interface SwapFormProps {
 
 export interface TokenInfo {
   address: string;
-  symbol: string;
   name: string;
+  symbol: string;
   decimals: number;
   balance: string;
-  logoURI?: string;
 }
 
 // State Types

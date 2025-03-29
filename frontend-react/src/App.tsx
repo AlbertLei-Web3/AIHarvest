@@ -1,225 +1,162 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useRoutes } from 'react-router-dom';
+import { routes } from './routes';
+import { useFarmStore } from './store';
 import useWeb3 from './hooks/useWeb3';
 import useContracts from './hooks/useContracts';
-import { PoolInfo, UserInfo } from './types';
 
 // Components
 import Header from './components/Layout/Header';
 import Footer from './components/Layout/Footer';
-import Home from './pages/Home';
-import Farms from './pages/Farms';
-import Staking from './pages/Staking';
-import Swap from './pages/Swap';
-import AIAssistant from './pages/AIAssistant';
-import NotFound from './pages/NotFound';
+
+// Error handling component
+const ErrorBanner: React.FC<{ message: string | null; onDismiss: () => void }> = ({ 
+  message, 
+  onDismiss 
+}) => {
+  if (!message) return null;
+  
+  return (
+    <div className="alert alert-danger alert-dismissible fade show" role="alert">
+      <div className="d-flex align-items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="bi bi-exclamation-triangle-fill flex-shrink-0 me-2" viewBox="0 0 16 16">
+          <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+        </svg>
+        <span>{message}</span>
+      </div>
+      <button 
+        type="button" 
+        className="btn-close" 
+        onClick={onDismiss} 
+        aria-label="Close"
+      ></button>
+    </div>
+  );
+};
+
+// Loading spinner component
+const LoadingSpinner: React.FC = () => (
+  <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-50" style={{ zIndex: 1050 }}>
+    <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+      <span className="visually-hidden">Loading...</span>
+    </div>
+  </div>
+);
+
+// Main app component
+const AppRoutes: React.FC = () => {
+  const routing = useRoutes(routes);
+  return routing;
+};
 
 const App: React.FC = () => {
-  const { account, connect, isConnected } = useWeb3();
   const { 
-    factoryContract, 
-    farmContract, 
+    isLoading, 
+    errorMessage, 
+    setError,
+    setLoading
+  } = useFarmStore();
+  
+  const { 
+    factoryContract,
+    farmContract,
     loadFarmContract,
     getPools,
     getUserInfo,
-    deposit,
-    withdraw,
-    compound,
-    isLoading,
-    error 
   } = useContracts();
   
-  const [farms, setFarms] = useState<PoolInfo[]>([]);
-  const [userFarms, setUserFarms] = useState<Record<number, UserInfo>>({});
-  const [loading, setLoading] = useState<boolean>(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { account, isConnected } = useFarmStore();
   
-  // Effect to load farm data
+  // Effect to load farm data when connected
   useEffect(() => {
-    const loadFarms = async () => {
+    const loadInitialData = async () => {
       try {
-        // Check if factory contract is loaded
-        if (!factoryContract) return;
+        if (!factoryContract || !isConnected) return;
         
-        // Get all farms from factory
+        setLoading(true);
+        // Get farms
         const allFarms = await factoryContract.getAllFarms();
         
         if (allFarms.length > 0) {
-          // Load the first farm for simplicity
+          // Load the first farm
           loadFarmContract(allFarms[0]);
         }
+        
+        setLoading(false);
       } catch (err: any) {
         console.error('Error loading farms:', err);
-        setErrorMessage(err.message || 'Failed to load farms');
-      }
-    };
-    
-    loadFarms();
-  }, [factoryContract, loadFarmContract]);
-  
-  // Effect to load pool data
-  useEffect(() => {
-    const loadPoolData = async () => {
-      if (!farmContract) return;
-      
-      try {
-        setLoading(true);
-        const poolData = await getPools();
-        setFarms(poolData);
-      } catch (err: any) {
-        console.error('Error loading pool data:', err);
-        setErrorMessage(err.message || 'Failed to load pool data');
-      } finally {
+        setError(err.message || 'Failed to load farms');
         setLoading(false);
       }
     };
     
-    loadPoolData();
-  }, [farmContract, getPools]);
+    loadInitialData();
+  }, [factoryContract, isConnected, loadFarmContract, setError, setLoading]);
   
-  // Effect to load user data when connected
+  // Effect to load pool data when farm contract is loaded
+  useEffect(() => {
+    const loadPoolsData = async () => {
+      try {
+        if (!farmContract) return;
+        
+        setLoading(true);
+        const pools = await getPools();
+        useFarmStore.getState().setPools(pools);
+        setLoading(false);
+      } catch (err: any) {
+        console.error('Error loading pools:', err);
+        setError(err.message || 'Failed to load pools');
+        setLoading(false);
+      }
+    };
+    
+    loadPoolsData();
+  }, [farmContract, getPools, setError, setLoading]);
+  
+  // Effect to load user data when connected and farm contract is loaded
   useEffect(() => {
     const loadUserData = async () => {
-      if (!farmContract || !account || !isConnected) return;
-      
       try {
-        setLoading(true);
-        const userFarmData: Record<number, UserInfo> = {};
+        if (!farmContract || !account || !isConnected) return;
         
-        for (let i = 0; i < farms.length; i++) {
+        setLoading(true);
+        const pools = useFarmStore.getState().pools;
+        
+        for (let i = 0; i < pools.length; i++) {
           const userInfo = await getUserInfo(i, account);
           if (userInfo) {
-            userFarmData[i] = userInfo;
+            useFarmStore.getState().setUserStakeInfo(i, userInfo);
           }
         }
         
-        setUserFarms(userFarmData);
+        setLoading(false);
       } catch (err: any) {
         console.error('Error loading user data:', err);
-        setErrorMessage(err.message || 'Failed to load user data');
-      } finally {
+        setError(err.message || 'Failed to load user data');
         setLoading(false);
       }
     };
     
     loadUserData();
-  }, [farmContract, account, isConnected, farms.length, getUserInfo]);
-  
-  // Handle deposit
-  const handleDeposit = async (pid: number, amount: string) => {
-    try {
-      setLoading(true);
-      const tx = await deposit(pid, amount);
-      if (tx) {
-        await tx.wait();
-        // Refresh data
-        const poolData = await getPools();
-        setFarms(poolData);
-        if (account) {
-          const userInfo = await getUserInfo(pid, account);
-          if (userInfo) {
-            setUserFarms(prev => ({ ...prev, [pid]: userInfo }));
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('Error depositing:', err);
-      setErrorMessage(err.message || 'Failed to deposit');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Handle withdraw
-  const handleWithdraw = async (pid: number, amount: string) => {
-    try {
-      setLoading(true);
-      const tx = await withdraw(pid, amount);
-      if (tx) {
-        await tx.wait();
-        // Refresh data
-        const poolData = await getPools();
-        setFarms(poolData);
-        if (account) {
-          const userInfo = await getUserInfo(pid, account);
-          if (userInfo) {
-            setUserFarms(prev => ({ ...prev, [pid]: userInfo }));
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('Error withdrawing:', err);
-      setErrorMessage(err.message || 'Failed to withdraw');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Handle compound
-  const handleCompound = async (pid: number) => {
-    try {
-      setLoading(true);
-      const tx = await compound(pid);
-      if (tx) {
-        await tx.wait();
-        // Refresh data
-        const poolData = await getPools();
-        setFarms(poolData);
-        if (account) {
-          const userInfo = await getUserInfo(pid, account);
-          if (userInfo) {
-            setUserFarms(prev => ({ ...prev, [pid]: userInfo }));
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('Error compounding:', err);
-      setErrorMessage(err.message || 'Failed to compound');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Clear error message
-  useEffect(() => {
-    if (error) {
-      setErrorMessage(error);
-    }
-  }, [error]);
+  }, [farmContract, account, isConnected, getUserInfo, setError, setLoading]);
   
   return (
     <Router>
-      <div className="app">
-        <Header 
-          title="AI Harvest"
-          onConnect={connect}
-          isConnected={isConnected}
-          walletAddress={account}
-        />
+      <div className="d-flex flex-column min-vh-100">
+        <Header />
         
         {errorMessage && (
-          <div className="error-banner">
-            <p>{errorMessage}</p>
-            <button onClick={() => setErrorMessage(null)}>Dismiss</button>
+          <div className="container mt-3">
+            <ErrorBanner 
+              message={errorMessage} 
+              onDismiss={() => setError(null)} 
+            />
           </div>
         )}
         
-        <main className="main-content">
-          {loading && (
-            <div className="loading-overlay">
-              <div className="loader"></div>
-              <p>Loading...</p>
-            </div>
-          )}
-          
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/farms" element={<Farms />} />
-            <Route path="/staking" element={<Staking />} />
-            <Route path="/swap" element={<Swap />} />
-            <Route path="/ai-assistant" element={<AIAssistant />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+        <main className="flex-grow-1">
+          {isLoading && <LoadingSpinner />}
+          <AppRoutes />
         </main>
         
         <Footer />

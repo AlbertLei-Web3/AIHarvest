@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 
+// Add window ethereum interface
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 interface UseWeb3Return {
   provider: ethers.providers.Web3Provider | null;
   signer: ethers.Signer | null;
@@ -53,8 +60,10 @@ const useWeb3 = (): UseWeb3Return => {
       window.ethereum.on('chainChanged', handleChainChanged);
 
       return () => {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        if (window.ethereum) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
       };
     }
   }, [handleAccountsChanged, handleChainChanged]);

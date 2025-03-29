@@ -1,39 +1,50 @@
-import React, { useState } from 'react';
-import { 
-  Container, 
-  Typography, 
-  Box, 
-  Card, 
-  CardContent, 
-  TextField, 
-  Button, 
-  Slider, 
-  Grid, 
-  Paper 
-} from '@mui/material';
-import useWeb3 from '../hooks/useWeb3';
+import React, { useState, useEffect } from 'react';
+import { useFarmStore } from '../store';
+import useContracts from '../hooks/useContracts';
+import { ethers } from 'ethers';
 
 const Staking: React.FC = () => {
-  const { isConnected, account } = useWeb3();
+  const { 
+    pools, 
+    userStakeInfo, 
+    isConnected, 
+    isLoading, 
+    account,
+    pendingRewards 
+  } = useFarmStore();
+  
+  const { 
+    deposit, 
+    withdraw, 
+    compound 
+  } = useContracts();
+  
   const [stakeAmount, setStakeAmount] = useState<string>('0');
   const [stakePercentage, setStakePercentage] = useState<number>(0);
   const [unstakeAmount, setUnstakeAmount] = useState<string>('0');
   const [unstakePercentage, setUnstakePercentage] = useState<number>(0);
+  const [selectedPool, setSelectedPool] = useState<number>(0);
   
-  // Mock data - would be replaced with actual contract calls
+  // Mock data - would be replaced with actual values from contracts
   const tokenBalance = '1000.00';
-  const stakedBalance = '500.00';
-  const pendingRewards = '25.50';
-  const stakingAPR = '12.5%';
+  const stakedBalance = userStakeInfo[selectedPool]?.amount || '0';
+  const pendingReward = pendingRewards[selectedPool] || '0';
+  const stakingAPR = pools[selectedPool]?.apr || '0';
+  
+  useEffect(() => {
+    if (pools.length > 0 && selectedPool >= pools.length) {
+      setSelectedPool(0);
+    }
+  }, [pools, selectedPool]);
 
-  const handleStakeSliderChange = (event: any, newValue: number | number[]) => {
-    const value = newValue as number;
+  const handleStakeSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
     setStakePercentage(value);
     setStakeAmount(((parseFloat(tokenBalance) * value) / 100).toFixed(2));
   };
 
-  const handleStakeInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
+  const handleStakeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
     setStakeAmount(value);
     const parsedValue = parseFloat(value);
     if (!isNaN(parsedValue) && parseFloat(tokenBalance) > 0) {
@@ -43,14 +54,14 @@ const Staking: React.FC = () => {
     }
   };
 
-  const handleUnstakeSliderChange = (event: any, newValue: number | number[]) => {
-    const value = newValue as number;
+  const handleUnstakeSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
     setUnstakePercentage(value);
     setUnstakeAmount(((parseFloat(stakedBalance) * value) / 100).toFixed(2));
   };
 
-  const handleUnstakeInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
+  const handleUnstakeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
     setUnstakeAmount(value);
     const parsedValue = parseFloat(value);
     if (!isNaN(parsedValue) && parseFloat(stakedBalance) > 0) {
@@ -70,225 +81,218 @@ const Staking: React.FC = () => {
     setUnstakePercentage(100);
   };
 
-  const handleStake = () => {
-    console.log(`Staking ${stakeAmount} tokens`);
-    // Would call contract method here
+  const handleStake = async () => {
+    if (!isConnected || parseFloat(stakeAmount) <= 0) return;
+    
+    try {
+      useFarmStore.getState().setLoading(true);
+      const tx = await deposit(selectedPool, ethers.utils.parseEther(stakeAmount).toString());
+      if (tx) {
+        await tx.wait();
+        // Reset form
+        setStakeAmount('0');
+        setStakePercentage(0);
+      }
+    } catch (err: any) {
+      console.error('Error staking:', err);
+      useFarmStore.getState().setError(err.message || 'Failed to stake');
+    } finally {
+      useFarmStore.getState().setLoading(false);
+    }
   };
 
-  const handleUnstake = () => {
-    console.log(`Unstaking ${unstakeAmount} tokens`);
-    // Would call contract method here
+  const handleUnstake = async () => {
+    if (!isConnected || parseFloat(unstakeAmount) <= 0) return;
+    
+    try {
+      useFarmStore.getState().setLoading(true);
+      const tx = await withdraw(selectedPool, ethers.utils.parseEther(unstakeAmount).toString());
+      if (tx) {
+        await tx.wait();
+        // Reset form
+        setUnstakeAmount('0');
+        setUnstakePercentage(0);
+      }
+    } catch (err: any) {
+      console.error('Error unstaking:', err);
+      useFarmStore.getState().setError(err.message || 'Failed to unstake');
+    } finally {
+      useFarmStore.getState().setLoading(false);
+    }
   };
 
-  const handleHarvest = () => {
-    console.log('Harvesting rewards');
-    // Would call contract method here
+  const handleHarvest = async () => {
+    if (!isConnected) return;
+    
+    try {
+      useFarmStore.getState().setLoading(true);
+      const tx = await compound(selectedPool);
+      if (tx) {
+        await tx.wait();
+      }
+    } catch (err: any) {
+      console.error('Error harvesting:', err);
+      useFarmStore.getState().setError(err.message || 'Failed to harvest');
+    } finally {
+      useFarmStore.getState().setLoading(false);
+    }
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Staking
-      </Typography>
-      
-      <Typography variant="body1" color="textSecondary" paragraph>
-        Stake your AI tokens to earn rewards. The longer you stake, the more rewards you'll earn.
-      </Typography>
+    <div className="container mx-auto px-4 py-8">
+      <div className="text-center mb-12">
+        <h1 className="text-3xl font-bold mb-4">Staking</h1>
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Stake your tokens to earn rewards. Our AI-powered strategies optimize your staking returns automatically.
+        </p>
+      </div>
       
       {!isConnected ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <Typography variant="h6" color="textSecondary">
-            Please connect your wallet to use staking
-          </Typography>
-        </Box>
+        <div className="text-center py-16">
+          <h3 className="text-xl font-medium text-gray-600">Please connect your wallet</h3>
+          <p className="mt-2 text-gray-500">Connect your wallet to view staking options</p>
+        </div>
       ) : (
-        <Grid container spacing={4}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Staking Info Card */}
-          <Grid item xs={12} md={4}>
-            <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Your Staking Info
-              </Typography>
+          <div className="card">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Your Staking Info</h2>
               
-              <Box sx={{ mt: 3 }}>
-                <Typography color="textSecondary" variant="body2">
-                  Available Balance
-                </Typography>
-                <Typography variant="h6" gutterBottom>
-                  {tokenBalance} AI
-                </Typography>
-              </Box>
-              
-              <Box sx={{ mt: 2 }}>
-                <Typography color="textSecondary" variant="body2">
-                  Staked Balance
-                </Typography>
-                <Typography variant="h6" gutterBottom>
-                  {stakedBalance} AI
-                </Typography>
-              </Box>
-              
-              <Box sx={{ mt: 2 }}>
-                <Typography color="textSecondary" variant="body2">
-                  Pending Rewards
-                </Typography>
-                <Typography variant="h6" color="primary" gutterBottom>
-                  {pendingRewards} AI
-                </Typography>
-              </Box>
-              
-              <Box sx={{ mt: 2 }}>
-                <Typography color="textSecondary" variant="body2">
-                  APR
-                </Typography>
-                <Typography variant="h6" color="secondary">
-                  {stakingAPR}
-                </Typography>
-              </Box>
-              
-              <Button 
-                variant="contained" 
-                color="primary" 
-                fullWidth 
-                sx={{ mt: 3 }}
-                onClick={handleHarvest}
-                disabled={parseFloat(pendingRewards) <= 0}
-              >
-                Harvest Rewards
-              </Button>
-            </Paper>
-          </Grid>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Available Balance</p>
+                  <p className="text-xl font-medium">{tokenBalance} AI</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-gray-500">Staked Balance</p>
+                  <p className="text-xl font-medium">{stakedBalance} AI</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-gray-500">Pending Rewards</p>
+                  <p className="text-xl font-medium text-secondary-600">{pendingReward} AI</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-gray-500">APR</p>
+                  <p className="text-xl font-medium text-primary-600">{stakingAPR}%</p>
+                </div>
+                
+                <button 
+                  className="btn btn-primary w-full"
+                  onClick={handleHarvest}
+                  disabled={parseFloat(pendingReward) <= 0}
+                >
+                  Harvest Rewards
+                </button>
+              </div>
+            </div>
+          </div>
           
           {/* Stake Card */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%', borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Stake Tokens
-                </Typography>
+          <div className="card">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Stake Tokens</h2>
+              
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm text-gray-700">Amount to Stake</label>
+                  <button 
+                    className="text-sm text-primary-600 hover:text-primary-700"
+                    onClick={handleMaxStake}
+                  >
+                    MAX
+                  </button>
+                </div>
                 
-                <Box sx={{ mt: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2">
-                      Amount to Stake
-                    </Typography>
-                    <Button 
-                      variant="text" 
-                      size="small" 
-                      onClick={handleMaxStake}
-                      sx={{ minWidth: 'auto', p: 0 }}
-                    >
-                      MAX
-                    </Button>
-                  </Box>
-                  
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    type="number"
-                    value={stakeAmount}
-                    onChange={handleStakeInputChange}
-                    margin="normal"
-                    InputProps={{
-                      endAdornment: <Typography variant="body2">AI</Typography>
-                    }}
+                <input
+                  type="number"
+                  className="input"
+                  value={stakeAmount}
+                  onChange={handleStakeInputChange}
+                  placeholder="0.00"
+                />
+                
+                <div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={stakePercentage}
+                    onChange={handleStakeSliderChange}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                   />
-                  
-                  <Box sx={{ mt: 2 }}>
-                    <Slider
-                      value={stakePercentage}
-                      onChange={handleStakeSliderChange}
-                      aria-labelledby="stake-slider"
-                      valueLabelDisplay="auto"
-                      valueLabelFormat={(value) => `${value}%`}
-                    />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="textSecondary">0%</Typography>
-                      <Typography variant="body2" color="textSecondary">100%</Typography>
-                    </Box>
-                  </Box>
-                </Box>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs text-gray-500">0%</span>
+                    <span className="text-xs text-gray-500">100%</span>
+                  </div>
+                </div>
                 
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  fullWidth 
-                  sx={{ mt: 3 }}
+                <button 
+                  className="btn btn-primary w-full"
                   onClick={handleStake}
                   disabled={parseFloat(stakeAmount) <= 0 || parseFloat(stakeAmount) > parseFloat(tokenBalance)}
                 >
                   Stake
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
+                </button>
+              </div>
+            </div>
+          </div>
           
           {/* Unstake Card */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%', borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Unstake Tokens
-                </Typography>
+          <div className="card">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Unstake Tokens</h2>
+              
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm text-gray-700">Amount to Unstake</label>
+                  <button 
+                    className="text-sm text-primary-600 hover:text-primary-700"
+                    onClick={handleMaxUnstake}
+                  >
+                    MAX
+                  </button>
+                </div>
                 
-                <Box sx={{ mt: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2">
-                      Amount to Unstake
-                    </Typography>
-                    <Button 
-                      variant="text" 
-                      size="small" 
-                      onClick={handleMaxUnstake}
-                      sx={{ minWidth: 'auto', p: 0 }}
-                    >
-                      MAX
-                    </Button>
-                  </Box>
-                  
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    type="number"
-                    value={unstakeAmount}
-                    onChange={handleUnstakeInputChange}
-                    margin="normal"
-                    InputProps={{
-                      endAdornment: <Typography variant="body2">AI</Typography>
-                    }}
+                <input
+                  type="number"
+                  className="input"
+                  value={unstakeAmount}
+                  onChange={handleUnstakeInputChange}
+                  placeholder="0.00"
+                />
+                
+                <div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={unstakePercentage}
+                    onChange={handleUnstakeSliderChange}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                   />
-                  
-                  <Box sx={{ mt: 2 }}>
-                    <Slider
-                      value={unstakePercentage}
-                      onChange={handleUnstakeSliderChange}
-                      aria-labelledby="unstake-slider"
-                      valueLabelDisplay="auto"
-                      valueLabelFormat={(value) => `${value}%`}
-                    />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="textSecondary">0%</Typography>
-                      <Typography variant="body2" color="textSecondary">100%</Typography>
-                    </Box>
-                  </Box>
-                </Box>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs text-gray-500">0%</span>
+                    <span className="text-xs text-gray-500">100%</span>
+                  </div>
+                </div>
                 
-                <Button 
-                  variant="contained" 
-                  color="secondary" 
-                  fullWidth 
-                  sx={{ mt: 3 }}
+                <button 
+                  className="btn btn-primary w-full"
                   onClick={handleUnstake}
                   disabled={parseFloat(unstakeAmount) <= 0 || parseFloat(unstakeAmount) > parseFloat(stakedBalance)}
                 >
                   Unstake
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
-    </Container>
+    </div>
   );
 };
 

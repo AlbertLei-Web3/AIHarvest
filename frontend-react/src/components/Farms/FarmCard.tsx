@@ -58,18 +58,23 @@ const FarmCard: React.FC<FarmCardProps> = ({
   // Check if user has staked tokens
   const hasStaked = userInfo && parseFloat(userInfo.amount) > 0;
   
-  // Check if there are pending rewards
-  const hasPendingRewards = userInfo && parseFloat(userInfo.pendingRewards) > 0;
+  // Check if there are pending rewards (use either pendingReward or pendingRewards prop)
+  const pendingRewardAmount = userInfo ? 
+    (userInfo.pendingReward || userInfo.pendingRewards || '0') : '0';
+  const hasPendingRewards = parseFloat(pendingRewardAmount) > 0;
   
-  // Format APR with 2 decimal places
-  const formattedAPR = poolInfo.apr.toFixed(2);
+  // Get APR as string
+  const aprValue = poolInfo.apr || '0';
+  
+  // Get token symbol with fallback
+  const tokenSymbol = poolInfo.symbol || 'Tokens';
 
   return (
     <div className="farm-card">
       <div className="farm-card-header">
-        <h3>{poolInfo.name}</h3>
+        <h3>{poolInfo.name || `Pool ${poolId}`}</h3>
         <div className="farm-card-tag">
-          <span>APR: {formattedAPR}%</span>
+          <span>APR: {aprValue}%</span>
         </div>
       </div>
       
@@ -77,20 +82,20 @@ const FarmCard: React.FC<FarmCardProps> = ({
         <div className="farm-stats">
           <div className="stat-item">
             <span className="stat-label">Total Staked</span>
-            <span className="stat-value">{parseFloat(poolInfo.totalStaked).toFixed(4)} {poolInfo.symbol}</span>
+            <span className="stat-value">{poolInfo.totalStaked} {tokenSymbol}</span>
           </div>
           
           {userInfo && (
             <div className="stat-item">
               <span className="stat-label">Your Stake</span>
-              <span className="stat-value">{parseFloat(userInfo.amount).toFixed(4)} {poolInfo.symbol}</span>
+              <span className="stat-value">{userInfo.amount} {tokenSymbol}</span>
             </div>
           )}
           
           {userInfo && (
             <div className="stat-item">
               <span className="stat-label">Pending Rewards</span>
-              <span className="stat-value">{parseFloat(userInfo.pendingRewards).toFixed(4)}</span>
+              <span className="stat-value">{pendingRewardAmount}</span>
             </div>
           )}
         </div>
@@ -119,12 +124,12 @@ const FarmCard: React.FC<FarmCardProps> = ({
                     type="number"
                     value={depositAmount}
                     onChange={(e) => setDepositAmount(e.target.value)}
-                    placeholder={`Amount in ${poolInfo.symbol}`}
+                    placeholder={`Amount in ${tokenSymbol}`}
                     min="0"
                     step="0.01"
                   />
                   <button 
-                    onClick={() => setDepositAmount('100')} // Example max value, would be replaced with actual balance
+                    onClick={() => setDepositAmount('100')} // Example max value
                     className="max-button"
                   >
                     MAX
@@ -145,13 +150,13 @@ const FarmCard: React.FC<FarmCardProps> = ({
                     type="number"
                     value={withdrawAmount}
                     onChange={(e) => setWithdrawAmount(e.target.value)}
-                    placeholder={`Amount in ${poolInfo.symbol}`}
+                    placeholder={`Amount in ${tokenSymbol}`}
                     min="0"
                     step="0.01"
                     disabled={!hasStaked}
                   />
                   <button 
-                    onClick={() => hasStaked && setWithdrawAmount(userInfo.amount)} 
+                    onClick={() => hasStaked && userInfo && setWithdrawAmount(userInfo.amount)} 
                     className="max-button"
                     disabled={!hasStaked}
                   >
@@ -183,7 +188,7 @@ const FarmCard: React.FC<FarmCardProps> = ({
       
       <div className="farm-card-footer">
         <a 
-          href={`https://etherscan.io/address/${poolInfo.lpToken}`} 
+          href={`https://etherscan.io/address/${poolInfo.lpToken || poolInfo.stakingToken}`} 
           target="_blank" 
           rel="noopener noreferrer"
           className="view-token-link"
