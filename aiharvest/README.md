@@ -1,119 +1,253 @@
-# AI Harvest Smart Contracts
+# AI Harvest - DeFi Yield Farming Platform
 
-This directory contains the smart contracts for the AI Harvest DeFi platform.
+AI Harvest 是一个去中心化收益耕作平台，集成了可升级智能合约，提供质押、兑换和治理功能。
 
-## Overview
+This repository contains the smart contracts for the AI Harvest platform, built with upgradeable contracts using the OpenZeppelin UUPS proxy pattern.
 
-AI Harvest is a yield farming platform with the following key features:
+## 目录结构 (Project Structure)
 
-- Stake LP tokens to earn rewards
-- Compound rewards automatically
-- Timelock mechanism to discourage frequent trading
-- Factory pattern for easier deployment
-- Owner-controlled allocation points for different pools
-
-## Contract Architecture
-
-```mermaid
-graph TD
-    Factory[Factory.sol] -->|creates| Farm[Farm.sol]
-    Farm -->|earns| Rewards[Reward Tokens]
-    Farm -->|stakes| LP[LP Tokens]
-    User -->|interacts with| Farm
-    User -->|provides| LP
-    User -->|earns| Rewards
+```
+aiharvest/
+├── contracts/           # 智能合约源码
+│   ├── FarmUpgradeable.sol         # 可升级的收益农场合约 (V1)
+│   ├── FarmUpgradeableV2.sol       # 收益农场合约升级版 (V2)
+│   ├── FactoryUpgradeable.sol      # 工厂合约 (V1)
+│   ├── FactoryUpgradeableV2.sol    # 工厂合约升级版 (V2)
+│   ├── SwapRouterUpgradeable.sol   # 代币交换路由 (V1)
+│   ├── SwapRouterUpgradeableV2.sol # 代币交换路由升级版 (V2)
+│   ├── TestTokenUpgradeable.sol    # 测试代币 (V1)
+│   └── TestTokenUpgradeableV2.sol  # 测试代币升级版 (V2)
+├── scripts/            # 部署和管理脚本
+│   ├── deploy-and-setup.js         # 全面部署和初始化脚本
+│   ├── deploy-upgradeable-contracts.js # 基本部署脚本
+│   ├── upgrade-contracts.js        # 合约升级脚本
+│   └── generate-contracts-json.js  # 合约信息生成脚本
+├── abis/              # 合约ABI文件 (由generate-contracts-json.js生成)
+├── contracts.json     # 部署的合约地址和ABI引用 (由generate-contracts-json.js生成)
+└── .env               # 环境变量配置
 ```
 
-## Contracts
+## 环境要求 (Requirements)
 
-### Farm.sol
+- Node.js v16+
+- npm 或 yarn
+- MetaMask 或其他以太坊钱包 (与前端交互时)
 
-The main contract that handles staking, rewards, and withdrawals:
+## 安装 (Installation)
 
-- **deposit**: Allows users to stake LP tokens
-- **withdraw**: Allows users to withdraw LP tokens and claim rewards
-- **compound**: Reinvests earned rewards automatically
-- **pendingReward**: Calculates pending rewards for a user
-- **emergencyWithdraw**: Allows emergency withdrawals without rewards in case of issues
-
-### Factory.sol
-
-A factory contract for deploying new Farm contracts:
-
-- **createFarm**: Creates a new Farm contract with specified parameters
-- **getAllFarms**: Returns all deployed Farm contracts
-- **getMyFarms**: Returns all Farms created by a specific user
-
-### TestToken.sol
-
-A simple ERC20 token for testing purposes.
-
-## Development
-
-### Prerequisites
-
-- Node.js
-- npm or yarn
-- Hardhat
-
-### Installation
+1. 克隆仓库并安装依赖：
 
 ```bash
-# Install dependencies
+git clone [your-repo-url]
+cd aiharvest
 npm install
-
-# Compile contracts
-npx hardhat compile
-
-# Run tests
-npx hardhat test
 ```
 
-### Testing
+2. 配置环境变量：
 
-Tests are located in the `test` directory and can be run using Hardhat:
+复制 `.env.example` 文件为 `.env` 并填入你的配置：
 
 ```bash
-# Run all tests
-npx hardhat test
-
-# Run specific test
-npx hardhat test test/Farm.test.js
+# 私钥 (用于部署)
+PRIVATE_KEY=your_private_key_here
+# Infura项目ID (用于连接网络)
+INFURA_PROJECT_ID=your_infura_project_id
+# Etherscan API密钥 (用于合约验证)
+ETHERSCAN_API_KEY=your_etherscan_api_key
+# 部署设置
+TREASURY_ADDRESS=your_treasury_address
+FARM_LOCK_DURATION=86400
+INITIAL_SUPPLY=1000000
 ```
 
-### Deployment
-
-To deploy the contracts to a network:
+## 编译合约 (Compiling Contracts)
 
 ```bash
-# Deploy to local hardhat network
-npx hardhat run scripts/deploy.js
-
-# Deploy to a specific network
-npx hardhat run scripts/deploy.js --network goerli
-
-# Deploy to mainnet
-npx hardhat run scripts/deploy.js --network mainnet
+npm run compile
 ```
 
-## Security Considerations
+## 部署合约 (Deploying Contracts)
 
-The contracts implement several security features:
+有几种部署选项：
 
-1. **ReentrancyGuard**: Protects against reentrancy attacks
-2. **Pausable**: Allows emergency pausing of contract operations
-3. **Timelock**: Prevents immediate withdrawals after deposits
-4. **Input Validation**: Prevents common errors like zero amount transfers
-5. **Custom Errors**: Provides clear error messages for better debugging
+### 本地开发网络 (Local Development)
 
-## Contributing
+启动本地 Hardhat 节点：
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```bash
+npm run node
+```
+
+在另一个终端窗口，部署合约：
+
+```bash
+npm run deploy:local
+```
+
+### 测试网 (Testnet)
+
+在 Sepolia 测试网上部署：
+
+```bash
+npm run deploy:sepolia
+```
+
+## 合约升级 (Contract Upgrades)
+
+合约升级流程：
+
+1. 在 `upgrade-contracts.js` 中填入已部署合约的地址
+2. 运行升级脚本：
+
+```bash
+npm run upgrade
+```
+
+注意：此脚本会将 V1 合约升级到 V2 版本，只有在需要新功能或修复时才应运行。
+
+## 为前端生成合约信息 (Generating Contract Info for Frontend)
+
+部署合约后，运行：
+
+```bash
+npm run generate-contracts
+```
+
+这将创建：
+- `contracts.json` - 包含合约地址和ABI引用
+- `abis/` 目录 - 包含各个合约的ABI文件
+
+你可以将这些文件复制到前端项目中使用。
+
+## 与合约交互 (Interacting with Contracts)
+
+### 在前端代码中：
+
+```javascript
+import contractsInfo from './contracts.json';
+import { ethers } from 'ethers';
+
+// 连接到Web3提供者
+async function connectWallet() {
+  // 使用MetaMask或其他Web3提供者
+  if (window.ethereum) {
+    try {
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      
+      // 创建合约实例
+      const aihToken = new ethers.Contract(
+        contractsInfo.contracts.AIHToken.address,
+        require('./abis/' + contractsInfo.contracts.AIHToken.abi),
+        signer
+      );
+      
+      const farm = new ethers.Contract(
+        contractsInfo.contracts.Farm.address,
+        require('./abis/' + contractsInfo.contracts.Farm.abi),
+        signer
+      );
+      
+      const swapRouter = new ethers.Contract(
+        contractsInfo.contracts.SwapRouter.address,
+        require('./abis/' + contractsInfo.contracts.SwapRouter.abi),
+        signer
+      );
+      
+      return { provider, signer, contracts: { aihToken, farm, swapRouter } };
+    } catch (error) {
+      console.error("User rejected connection", error);
+    }
+  } else {
+    console.error("No Ethereum browser extension detected");
+  }
+}
+
+// 使用示例：
+async function exampleInteraction() {
+  const { signer, contracts } = await connectWallet();
+  const userAddress = await signer.getAddress();
+  
+  // 获取代币余额
+  const balance = await contracts.aihToken.balanceOf(userAddress);
+  console.log("AIH余额:", ethers.utils.formatEther(balance));
+  
+  // 查询Farm池子信息
+  const poolLength = await contracts.farm.poolLength();
+  console.log("Farm池子数量:", poolLength.toString());
+  
+  // 质押代币
+  const stakeAmount = ethers.utils.parseEther("10");
+  await contracts.aihToken.approve(contracts.farm.address, stakeAmount);
+  await contracts.farm.deposit(0, stakeAmount); // 池子ID 0, 质押10个代币
+  
+  // 查询待领取奖励
+  const pendingReward = await contracts.farm.pendingReward(0, userAddress);
+  console.log("待领取奖励:", ethers.utils.formatEther(pendingReward));
+  
+  // 代币兑换
+  const swapAmount = ethers.utils.parseEther("5");
+  await contracts.aihToken.approve(contracts.swapRouter.address, swapAmount);
+  await contracts.swapRouter.swap(
+    contracts.aihToken.address,  // fromToken
+    contractsInfo.contracts.StableCoin.address,  // toToken
+    swapAmount  // amount
+  );
+}
+```
+
+## 合约架构 (Contract Architecture)
+
+系统使用可升级的智能合约架构，基于OpenZeppelin的UUPS代理模式。主要组件包括：
+
+### Factory (工厂合约)
+- 创建和管理Farm和SwapRouter实例
+- 存储和升级合约实现
+
+### Farm (收益农场)
+- 管理用户质押和奖励
+- 支持多种代币池和复利功能
+
+### SwapRouter (交换路由)
+- 提供代币兑换功能
+- 收取交易费用支持流动性提供者
+
+### TestToken (测试代币)
+- ERC20兼容的代币实现
+- 用于测试和演示
+
+## V2升级功能 (V2 Upgrade Features)
+
+V2版本的合约添加了以下功能：
+
+### FarmUpgradeableV2
+- 提前解锁功能(需付费)
+- 奖励加速功能(可以提高收益率)
+- 支持分类管理池子
+
+### SwapRouterUpgradeableV2
+- 交易金额限制
+- 代币白名单功能
+- 批量操作支持
+
+### FactoryUpgradeableV2
+- 批量部署Farm功能
+- 系统统计功能
+- 黑名单功能
+
+### TestTokenUpgradeableV2
+- 暂停功能
+- 黑名单功能
+- 最大供应量限制
+
+## 安全考虑 (Security Considerations)
+
+- 所有合约都实现了重入保护
+- 使用OpenZeppelin的权限控制系统
+- 限制敏感操作只能由所有者执行
+- 异常情况有紧急提款功能
 
 ## License
 
-MIT 
+[MIT](LICENSE) 
