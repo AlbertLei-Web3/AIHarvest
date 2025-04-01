@@ -65,6 +65,30 @@ export interface TokenInfo {
   balance: string;
 }
 
+// Swap Types
+export interface SwapPair {
+  tokenA: string;
+  tokenB: string;
+  exchangeRate: string;
+  lpBalance: string;
+}
+
+export interface SwapInfo {
+  lpFee: string; // 0.25%
+  protocolFee: string; // 0.05%
+  treasury: string;
+}
+
+export interface SwapResult {
+  fromToken: string;
+  toToken: string;
+  fromAmount: string;
+  toAmount: string;
+  lpFeeAmount: string;
+  protocolFeeAmount: string;
+  transactionHash: string;
+}
+
 // State Types
 export interface AppState {
   loading: boolean;
@@ -98,6 +122,17 @@ export interface FactoryAPI {
     startTime: number
   ): Promise<Transaction>;
   getAllFarms(): Promise<string[]>;
+  getSwapRouter(): Promise<string>;
+  createSwapRouter(treasury: string): Promise<Transaction>;
+}
+
+export interface SwapAPI {
+  getExchangeRate(fromToken: string, toToken: string): Promise<string>;
+  getOutputAmount(fromToken: string, toToken: string, amount: string): Promise<string>;
+  swap(fromToken: string, toToken: string, amount: string): Promise<Transaction>;
+  addLiquidity(tokenA: string, tokenB: string, amountA: string, amountB: string): Promise<Transaction>;
+  getLpBalance(tokenA: string, tokenB: string): Promise<string>;
+  getSwapInfo(): Promise<SwapInfo>;
 }
 
 // Contract ABIs
@@ -117,7 +152,10 @@ export const FARM_ABI = [
 export const FACTORY_ABI = [
   "function getAllFarms() view returns (address[])",
   "function createFarm(address _stakingToken, address _rewardToken, uint256 _rewardRate) external returns (address)",
-  "function getFarmCount() view returns (uint256)"
+  "function getFarmCount() view returns (uint256)",
+  "function createSwapRouter(address _treasury) external returns (address)",
+  "function getSwapRouter() view returns (address)",
+  "function swapRouter() view returns (address)"
 ];
 
 export const ERC20_ABI = [
@@ -132,4 +170,16 @@ export const ERC20_ABI = [
   "function transferFrom(address sender, address recipient, uint256 amount) returns (bool)",
   "event Transfer(address indexed from, address indexed to, uint256 value)",
   "event Approval(address indexed owner, address indexed spender, uint256 value)"
+];
+
+export const SWAP_ROUTER_ABI = [
+  "function swap(address fromToken, address toToken, uint256 amount) external returns (uint256)",
+  "function getOutputAmount(address fromToken, address toToken, uint256 amount) external view returns (uint256)",
+  "function addLiquidity(address tokenA, address tokenB, uint256 amountA, uint256 amountB) external",
+  "function setExchangeRate(address tokenA, address tokenB, uint256 rate) external",
+  "function exchangeRates(address tokenA, address tokenB) view returns (uint256)",
+  "function lpBalances(address tokenA, address tokenB) view returns (uint256)",
+  "function lpFee() view returns (uint256)",
+  "function protocolFee() view returns (uint256)",
+  "function treasury() view returns (address)"
 ]; 

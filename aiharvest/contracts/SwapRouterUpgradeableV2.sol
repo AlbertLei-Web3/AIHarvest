@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -20,32 +21,21 @@ contract SwapRouterUpgradeableV2 is
     UUPSUpgradeable,
     SwapRouterUpgradeable
 {
-    // 常量
-    uint256 public constant FEE_DENOMINATOR = 10000;
-    
-    // 状态变量
-    uint256 public lpFee; // LP费用，以FEE_DENOMINATOR为基准的百分比
-    uint256 public protocolFee; // 协议费用，以FEE_DENOMINATOR为基准的百分比
-    address public treasury; // 国库地址，用于接收协议费用
+    using SafeERC20 for IERC20;
     
     // V2新增状态变量
     uint256 public maxSwapAmount; // 单次交换的最大代币数量
     mapping(address => bool) public whitelistedTokens; // 白名单代币
     bool public whitelistEnabled; // 是否启用白名单
     
-    // 映射
-    mapping(address => mapping(address => uint256)) public exchangeRates; // 代币兑换率
-    mapping(address => uint256) public lpBalances; // LP代币余额
+    // V2 新增费用细分
+    uint256 public lpFee; // LP费用
+    uint256 public protocolFee; // 协议费用
     
     // Maximum transfer amount per token
     mapping(address => uint256) public maxTransferAmounts;
     
-    // 事件
-    event TokenSwapped(address indexed fromToken, address indexed toToken, address indexed user, uint256 fromAmount, uint256 toAmount, uint256 fee);
-    event LiquidityAdded(address indexed token, address indexed user, uint256 amount);
-    event TreasuryUpdated(address oldTreasury, address newTreasury);
-    event ExchangeRateUpdated(address indexed fromToken, address indexed toToken, uint256 newRate);
-    event FeeUpdated(uint256 newLpFee, uint256 newProtocolFee);
+    // V2 新增事件 - 只添加父合约中不存在的事件
     event MaxSwapAmountUpdated(uint256 oldLimit, uint256 newLimit);
     event TokenWhitelisted(address indexed token, bool status);
     event WhitelistStatusChanged(bool enabled);
@@ -53,6 +43,7 @@ contract SwapRouterUpgradeableV2 is
     event TokenRemovedFromWhitelist(address indexed token);
     event MaxTransferAmountSet(address indexed token, uint256 amount);
     event BatchSwapExecuted(address indexed user, uint256 swapCount);
+    event TokenSwapped(address indexed fromToken, address indexed toToken, address indexed user, uint256 fromAmount, uint256 toAmount, uint256 fee);
     
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -61,41 +52,35 @@ contract SwapRouterUpgradeableV2 is
     
     /// @notice Initializes the contract
     /// @dev Replace the constructor for upgradeable contracts
-    /// @param _factory Factory contract address
-    function initialize(address _factory) public initializer {
-        __Ownable_init();
-        __ReentrancyGuard_init();
-        __Pausable_init();
-        __UUPSUpgradeable_init();
-        
-        require(_factory != address(0), "Invalid factory address");
-        transferOwnership(_factory);
-        
-        lpFee = 300; // 3%
-        protocolFee = 100; // 1%
+    /// @param _treasury Treasury address
+    /// @param _fee Fee in basis points
+    function initialize(address _treasury, uint256 _fee) public override initializer {
+        // 调用父合约的初始化
+        super.initialize(_treasury, _fee); // 设置基础费率
         
         // V2初始化
+        lpFee = 300; // 3%
+        protocolFee = 100; // 1%
         maxSwapAmount = 1000 ether; // 默认最大交换限额
         whitelistEnabled = false; // 默认不启用白名单
     }
     
     /// @notice Pauses the contract
     /// @dev Only callable by the owner
-    function pause() external onlyOwner {
+    function pause() external override onlyOwner {
         _pause();
     }
     
     /// @notice Unpauses the contract
     /// @dev Only callable by the owner
-    function unpause() external onlyOwner {
+    function unpause() external override onlyOwner {
         _unpause();
     }
     
     /// @notice Sets the treasury address
     /// @dev Only callable by the owner
     /// @param _treasury New treasury address
-    function setTreasury(address _treasury) external onlyOwner {
-        require(_treasury != address(0), "Invalid treasury address");
+    function setTreasury(address _treasury) external override onlyOwner {
         address oldTreasury = treasury;
         treasury = _treasury;
         emit TreasuryUpdated(oldTreasury, _treasury);
@@ -110,42 +95,16 @@ contract SwapRouterUpgradeableV2 is
         require(_fromToken != address(0) && _toToken != address(0), "Invalid token address");
         require(_rate > 0, "Rate must be positive");
         
+        // 直接设置汇率而不是调用super.setExchangeRate
         exchangeRates[_fromToken][_toToken] = _rate;
         emit ExchangeRateUpdated(_fromToken, _toToken, _rate);
-    }
-    
-    /// @notice Adds liquidity to the platform
-    /// @param _token Token address
-    /// @param _amount Amount of tokens to add
-    function addLiquidity(address _token, uint256 _amount) external nonReentrant whenNotPaused {
-        require(_token != address(0), "Invalid token address");
-        require(_amount > 0, "Amount must be positive");
-        
-        if (whitelistEnabled) {
-            require(whitelistedTokens[_token], "Token not whitelisted");
-        }
-        
-        IERC20Upgradeable token = IERC20Upgradeable(_token);
-        
-        // 检查余额和授权
-        require(token.balanceOf(msg.sender) >= _amount, "Insufficient balance");
-        require(token.allowance(msg.sender, address(this)) >= _amount, "Insufficient allowance");
-        
-        // 转账
-        bool success = token.transferFrom(msg.sender, address(this), _amount);
-        require(success, "Transfer failed");
-        
-        // 更新LP余额
-        lpBalances[_token] += _amount;
-        
-        emit LiquidityAdded(_token, msg.sender, _amount);
     }
     
     /// @notice Swaps tokens
     /// @param _fromToken From token address
     /// @param _toToken To token address
     /// @param _amount Amount of from tokens to swap
-    function swap(address _fromToken, address _toToken, uint256 _amount) external nonReentrant whenNotPaused returns (uint256) {
+    function swap(address _fromToken, address _toToken, uint256 _amount) external override nonReentrant whenNotPaused returns (uint256) {
         require(_fromToken != address(0) && _toToken != address(0), "Invalid token address");
         require(_fromToken != _toToken, "Cannot swap same token");
         require(_amount > 0, "Amount must be positive");
@@ -155,35 +114,34 @@ contract SwapRouterUpgradeableV2 is
             require(whitelistedTokens[_fromToken] && whitelistedTokens[_toToken], "Token not whitelisted");
         }
         
+        // V2版本使用自定义的实现，而不是调用父合约
         uint256 rate = exchangeRates[_fromToken][_toToken];
         require(rate > 0, "Exchange rate not set");
         
         // 计算输出金额
         uint256 outputAmount = _amount * rate / 1e18;
         
-        // 检查合约有足够的toToken
-        require(IERC20Upgradeable(_toToken).balanceOf(address(this)) >= outputAmount, "Insufficient liquidity");
-        
         // 计算费用
         uint256 lpFeeAmount = outputAmount * lpFee / FEE_DENOMINATOR;
         uint256 protocolFeeAmount = outputAmount * protocolFee / FEE_DENOMINATOR;
         uint256 finalAmount = outputAmount - lpFeeAmount - protocolFeeAmount;
         
+        // 检查合约中是否有足够的toToken
+        require(IERC20(_toToken).balanceOf(address(this)) >= finalAmount, "Insufficient liquidity");
+        
         // 转账fromToken到合约
-        IERC20Upgradeable fromToken = IERC20Upgradeable(_fromToken);
-        require(fromToken.transferFrom(msg.sender, address(this), _amount), "Transfer from failed");
+        IERC20(_fromToken).safeTransferFrom(msg.sender, address(this), _amount);
         
         // 更新LP余额
-        lpBalances[_fromToken] += _amount;
-        lpBalances[_toToken] -= finalAmount;
+        lpBalances[_fromToken][_toToken] += _amount;
+        lpBalances[_toToken][_fromToken] -= finalAmount;
         
         // 向用户发送toToken
-        IERC20Upgradeable toToken = IERC20Upgradeable(_toToken);
-        require(toToken.transfer(msg.sender, finalAmount), "Transfer to failed");
+        IERC20(_toToken).safeTransfer(msg.sender, finalAmount);
         
         // 如果有协议费用且国库地址有效，则发送协议费用
         if (protocolFeeAmount > 0 && treasury != address(0)) {
-            require(toToken.transfer(treasury, protocolFeeAmount), "Protocol fee transfer failed");
+            IERC20(_toToken).safeTransfer(treasury, protocolFeeAmount);
         }
         
         emit TokenSwapped(_fromToken, _toToken, msg.sender, _amount, finalAmount, lpFeeAmount + protocolFeeAmount);
@@ -201,7 +159,11 @@ contract SwapRouterUpgradeableV2 is
         lpFee = _lpFee;
         protocolFee = _protocolFee;
         
-        emit FeeUpdated(_lpFee, _protocolFee);
+        // 同时更新父合约的总费率
+        uint256 totalFee = _lpFee + _protocolFee;
+        fee = totalFee; // Update the fee in the parent contract
+        
+        emit FeeUpdated(totalFee);
     }
     
     /// @notice Allows emergency withdrawal of tokens from the contract
@@ -214,22 +176,17 @@ contract SwapRouterUpgradeableV2 is
         require(_to != address(0), "Invalid recipient address");
         require(_amount > 0, "Amount must be positive");
         
-        IERC20Upgradeable token = IERC20Upgradeable(_token);
+        IERC20 token = IERC20(_token);
         require(token.balanceOf(address(this)) >= _amount, "Insufficient balance");
         
         require(token.transfer(_to, _amount), "Transfer failed");
         
-        // 更新LP余额
-        if (lpBalances[_token] >= _amount) {
-            lpBalances[_token] -= _amount;
-        } else {
-            lpBalances[_token] = 0;
-        }
+        // 注意：此处简化处理，实际应该根据具体业务逻辑更新相应的LP余额
+        // 由于无法枚举映射中的所有键，我们不能遍历所有的LP对
+        // 该功能应由具体的业务逻辑或单独的管理函数处理
     }
     
-    // V2新增功能
-    
-    /// @notice Sets the maximum amount for a single swap
+    /// @notice Sets maximum swap amount
     /// @dev Only callable by the owner
     /// @param _maxAmount New maximum swap amount
     function setMaxSwapAmount(uint256 _maxAmount) external onlyOwner {
@@ -239,206 +196,138 @@ contract SwapRouterUpgradeableV2 is
         emit MaxSwapAmountUpdated(oldLimit, _maxAmount);
     }
     
-    /// @notice Adds or removes a token from the whitelist
+    /// @notice Adds a token to the whitelist
     /// @dev Only callable by the owner
-    /// @param _token Token address
-    /// @param _status Whether the token should be whitelisted
-    function setTokenWhitelist(address _token, bool _status) external onlyOwner {
+    /// @param _token Token address to add
+    function addToWhitelist(address _token) external onlyOwner {
         require(_token != address(0), "Invalid token address");
-        whitelistedTokens[_token] = _status;
-        emit TokenWhitelisted(_token, _status);
+        whitelistedTokens[_token] = true;
+        emit TokenAddedToWhitelist(_token);
     }
     
-    /// @notice Enables or disables the whitelist functionality
+    /// @notice Removes a token from the whitelist
     /// @dev Only callable by the owner
-    /// @param _enabled Whether whitelist should be enabled
+    /// @param _token Token address to remove
+    function removeFromWhitelist(address _token) external onlyOwner {
+        require(_token != address(0), "Invalid token address");
+        whitelistedTokens[_token] = false;
+        emit TokenRemovedFromWhitelist(_token);
+    }
+    
+    /// @notice Enables or disables the whitelist
+    /// @dev Only callable by the owner
+    /// @param _enabled Whether to enable the whitelist
     function setWhitelistEnabled(bool _enabled) external onlyOwner {
         whitelistEnabled = _enabled;
         emit WhitelistStatusChanged(_enabled);
     }
     
-    /// @notice Batch whitelist multiple tokens
+    /// @notice Sets maximum transfer amount for a token
     /// @dev Only callable by the owner
-    /// @param _tokens Array of token addresses
-    /// @param _statuses Array of whitelist statuses
-    function batchSetTokenWhitelist(address[] calldata _tokens, bool[] calldata _statuses) external onlyOwner {
-        require(_tokens.length == _statuses.length, "Array length mismatch");
-        
-        for (uint256 i = 0; i < _tokens.length; i++) {
-            require(_tokens[i] != address(0), "Invalid token address");
-            whitelistedTokens[_tokens[i]] = _statuses[i];
-            emit TokenWhitelisted(_tokens[i], _statuses[i]);
-        }
+    /// @param _token Token address
+    /// @param _amount Maximum amount that can be transferred
+    function setMaxTransferAmount(address _token, uint256 _amount) external onlyOwner {
+        require(_token != address(0), "Invalid token address");
+        require(_amount > 0, "Amount must be positive");
+        maxTransferAmounts[_token] = _amount;
+        emit MaxTransferAmountSet(_token, _amount);
     }
     
-    /// @notice Checks if a token is available for swapping
-    /// @param _token Token address to check
-    /// @return Whether the token is available for swapping
-    function isTokenAvailable(address _token) external view returns (bool) {
-        if (!whitelistEnabled) {
-            return true;
+    /// @notice Batch swap tokens
+    /// @dev Allows swapping multiple tokens in a single transaction
+    /// @param fromTokens Array of source token addresses
+    /// @param toTokens Array of destination token addresses
+    /// @param amounts Array of amounts to swap
+    /// @return Array of destination token amounts received
+    function batchSwap(
+        address[] calldata fromTokens,
+        address[] calldata toTokens,
+        uint256[] calldata amounts
+    ) external nonReentrant whenNotPaused returns (uint256[] memory) {
+        require(
+            fromTokens.length == toTokens.length && 
+            fromTokens.length == amounts.length,
+            "Arrays length mismatch"
+        );
+        
+        uint256[] memory outputs = new uint256[](fromTokens.length);
+        
+        for (uint256 i = 0; i < fromTokens.length; i++) {
+            // 使用单次swap的逻辑
+            outputs[i] = _swapInternal(
+                fromTokens[i],
+                toTokens[i],
+                amounts[i]
+            );
         }
-        return whitelistedTokens[_token];
+        
+        emit BatchSwapExecuted(msg.sender, fromTokens.length);
+        
+        return outputs;
     }
     
-    /// @notice Returns the exchange rate from one token to another
-    /// @param _fromToken From token address
-    /// @param _toToken To token address
-    /// @param _amount Amount of from tokens
-    /// @return Final amount after fees
-    function getSwapAmount(address _fromToken, address _toToken, uint256 _amount) external view returns (uint256) {
-        uint256 rate = exchangeRates[_fromToken][_toToken];
-        if (rate == 0) return 0;
+    /// @notice Internal swap function
+    /// @param fromToken Source token address
+    /// @param toToken Destination token address
+    /// @param amount Amount to swap
+    /// @return Amount of destination token received
+    function _swapInternal(
+        address fromToken,
+        address toToken,
+        uint256 amount
+    ) internal returns (uint256) {
+        require(fromToken != address(0) && toToken != address(0), "Invalid token address");
+        require(fromToken != toToken, "Cannot swap same token");
+        require(amount > 0, "Amount must be positive");
+        require(amount <= maxSwapAmount, "Exceeds maximum swap amount");
         
-        uint256 outputAmount = _amount * rate / 1e18;
+        if (whitelistEnabled) {
+            require(whitelistedTokens[fromToken] && whitelistedTokens[toToken], "Token not whitelisted");
+        }
+        
+        uint256 rate = exchangeRates[fromToken][toToken];
+        require(rate > 0, "Exchange rate not set");
+        
+        // 计算输出金额
+        uint256 outputAmount = amount * rate / 1e18;
+        
+        // 计算费用
         uint256 lpFeeAmount = outputAmount * lpFee / FEE_DENOMINATOR;
         uint256 protocolFeeAmount = outputAmount * protocolFee / FEE_DENOMINATOR;
-        return outputAmount - lpFeeAmount - protocolFeeAmount;
+        uint256 finalAmount = outputAmount - lpFeeAmount - protocolFeeAmount;
+        
+        // 检查合约有足够的toToken
+        require(IERC20(toToken).balanceOf(address(this)) >= finalAmount, "Insufficient liquidity");
+        
+        // 转账fromToken到合约
+        IERC20(fromToken).safeTransferFrom(msg.sender, address(this), amount);
+        
+        // 更新LP余额
+        lpBalances[fromToken][toToken] += amount;
+        lpBalances[toToken][fromToken] -= finalAmount;
+        
+        // 向用户发送toToken
+        IERC20(toToken).safeTransfer(msg.sender, finalAmount);
+        
+        // 如果有协议费用且国库地址有效，则发送协议费用
+        if (protocolFeeAmount > 0 && treasury != address(0)) {
+            IERC20(toToken).safeTransfer(treasury, protocolFeeAmount);
+        }
+        
+        emit TokenSwapped(fromToken, toToken, msg.sender, amount, finalAmount, lpFeeAmount + protocolFeeAmount);
+        
+        return finalAmount;
     }
     
-    /// @notice Function that allows the contract to be upgraded
-    /// @dev Only callable by the owner
-    /// @param newImplementation Address of the new implementation
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
-        // Additional upgrade restrictions can be added here
+    /// @notice Authorize contract upgrade
+    /// @param newImplementation New implementation address
+    function _authorizeUpgrade(address newImplementation) internal override(UUPSUpgradeable, SwapRouterUpgradeable) onlyOwner {
+        // 无需额外实现，父类已实现基本功能
     }
     
     /// @notice Returns the current contract version
     /// @return Version string
     function version() public pure override returns (string memory) {
         return "2.0.0";
-    }
-    
-    /**
-     * @dev Adds a token to the whitelist
-     * @param token Token address to add
-     */
-    function addToWhitelist(address token) external onlyOwner {
-        require(token != address(0), "Invalid token address");
-        whitelistedTokens[token] = true;
-        emit TokenAddedToWhitelist(token);
-    }
-    
-    /**
-     * @dev Removes a token from the whitelist
-     * @param token Token address to remove
-     */
-    function removeFromWhitelist(address token) external onlyOwner {
-        whitelistedTokens[token] = false;
-        emit TokenRemovedFromWhitelist(token);
-    }
-    
-    /**
-     * @dev Sets the maximum transfer amount for a token
-     * @param token Token address to set limit for
-     * @param amount Maximum amount that can be transferred in a single transaction
-     */
-    function setMaxTransferAmount(address token, uint256 amount) external onlyOwner {
-        require(token != address(0), "Invalid token address");
-        maxTransferAmounts[token] = amount;
-        emit MaxTransferAmountSet(token, amount);
-    }
-    
-    /**
-     * @dev Adds multiple tokens to the whitelist in a single transaction
-     * @param tokens Array of token addresses to add
-     */
-    function batchAddToWhitelist(address[] calldata tokens) external onlyOwner {
-        for (uint256 i = 0; i < tokens.length; i++) {
-            require(tokens[i] != address(0), "Invalid token address");
-            whitelistedTokens[tokens[i]] = true;
-            emit TokenAddedToWhitelist(tokens[i]);
-        }
-    }
-    
-    /**
-     * @dev Executes multiple swaps in a single transaction
-     * @param fromTokens Array of tokens to swap from
-     * @param toTokens Array of tokens to swap to
-     * @param amounts Array of input amounts
-     * @param minAmountsOut Array of minimum output amounts (slippage protection)
-     * @param to Address to receive the output tokens
-     * @param deadline Deadline for the transaction
-     * @return amountsOut Array of output amounts
-     */
-    function batchSwap(
-        address[] calldata fromTokens,
-        address[] calldata toTokens,
-        uint256[] calldata amounts,
-        uint256[] calldata minAmountsOut,
-        address to,
-        uint256 deadline
-    ) external nonReentrant returns (uint256[] memory amountsOut) {
-        require(
-            fromTokens.length == toTokens.length &&
-            fromTokens.length == amounts.length &&
-            fromTokens.length == minAmountsOut.length,
-            "Array length mismatch"
-        );
-        
-        amountsOut = new uint256[](fromTokens.length);
-        
-        for (uint256 i = 0; i < fromTokens.length; i++) {
-            amountsOut[i] = _swap(
-                fromTokens[i],
-                toTokens[i],
-                amounts[i],
-                minAmountsOut[i],
-                to,
-                deadline
-            );
-        }
-        
-        emit BatchSwapExecuted(msg.sender, fromTokens.length);
-        
-        return amountsOut;
-    }
-    
-    /**
-     * @dev Internal swap function with additional checks
-     * @param fromToken Token to swap from
-     * @param toToken Token to swap to
-     * @param amountIn Amount of fromToken to swap
-     * @param minAmountOut Minimum amount of toToken to receive (slippage protection)
-     * @param to Address to receive the output tokens
-     * @param deadline Deadline for the transaction
-     * @return amountOut Amount of toToken received
-     */
-    function _swap(
-        address fromToken,
-        address toToken,
-        uint256 amountIn,
-        uint256 minAmountOut,
-        address to,
-        uint256 deadline
-    ) internal returns (uint256 amountOut) {
-        // Check whitelist if enabled
-        if (whitelistEnabled) {
-            require(whitelistedTokens[fromToken], "From token not whitelisted");
-            require(whitelistedTokens[toToken], "To token not whitelisted");
-        }
-        
-        // Check max transfer amount
-        uint256 maxAmount = maxTransferAmounts[fromToken];
-        if (maxAmount > 0) {
-            require(amountIn <= maxAmount, "Amount exceeds maximum transfer limit");
-        }
-        
-        // Call the base swap function
-        return super.swap(fromToken, toToken, amountIn, minAmountOut, to, deadline);
-    }
-    
-    /**
-     * @dev Overrides the swap function to add additional checks
-     */
-    function swap(
-        address fromToken,
-        address toToken,
-        uint256 amountIn,
-        uint256 minAmountOut,
-        address to,
-        uint256 deadline
-    ) external override nonReentrant returns (uint256) {
-        return _swap(fromToken, toToken, amountIn, minAmountOut, to, deadline);
     }
 } 

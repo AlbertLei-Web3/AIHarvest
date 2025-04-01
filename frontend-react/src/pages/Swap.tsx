@@ -12,7 +12,8 @@ interface SwapFormProps {
 }
 
 const Swap: React.FC = () => {
-  const { isConnected, account, tokens } = useFarmStore();
+  const { isConnected, account, tokens, swapRouterAddress, isLoading } = useFarmStore();
+  const { swap, getSwapOutputAmount, getTokenInfo, getSwapInfo } = useContracts();
   
   // Mock token list - would be fetched from a contract or API in a real implementation
   const [availableTokens, setAvailableTokens] = useState<TokenInfo[]>([
@@ -43,8 +44,10 @@ const Swap: React.FC = () => {
   const [toToken, setToToken] = useState<TokenInfo>(availableTokens[1]);
   const [fromAmount, setFromAmount] = useState<string>('');
   const [toAmount, setToAmount] = useState<string>('');
-  const [swapRate, setSwapRate] = useState<string>('1 ETH = 1000 AI');
+  const [swapRate, setSwapRate] = useState<string>('');
   const [slippage, setSlippage] = useState<number>(0.5); // 0.5% default slippage
+  const [lpFee, setLpFee] = useState<string>('0.25'); // 0.25% default LP fee
+  const [protocolFee, setProtocolFee] = useState<string>('0.05'); // 0.05% default protocol fee
   
   useEffect(() => {
     if (tokens.length > 0) {
@@ -54,12 +57,65 @@ const Swap: React.FC = () => {
     }
   }, [tokens]);
   
+  // Fetch swap info when router address changes
+  useEffect(() => {
+    const fetchSwapInfo = async () => {
+      if (swapRouterAddress) {
+        const info = await getSwapInfo();
+        if (info) {
+          setLpFee((parseFloat(info.lpFee) / 10).toString());
+          setProtocolFee((parseFloat(info.protocolFee) / 10).toString());
+        }
+      }
+    };
+    
+    fetchSwapInfo();
+  }, [swapRouterAddress, getSwapInfo]);
+  
+  // Get output amount when input changes
+  useEffect(() => {
+    const getOutput = async () => {
+      if (!fromAmount || parseFloat(fromAmount) <= 0 || !swapRouterAddress || !fromToken || !toToken) {
+        setToAmount('');
+        return;
+      }
+      
+      try {
+        const outputAmount = await getSwapOutputAmount(
+          fromToken.address,
+          toToken.address,
+          fromAmount
+        );
+        
+        setToAmount(outputAmount);
+        
+        // Update swap rate for display
+        if (parseFloat(fromAmount) > 0) {
+          const rate = parseFloat(outputAmount) / parseFloat(fromAmount);
+          setSwapRate(`1 ${fromToken.symbol} ≈ ${rate.toFixed(6)} ${toToken.symbol}`);
+        }
+      } catch (err) {
+        console.error('Error getting output amount:', err);
+        setToAmount('');
+      }
+    };
+    
+    getOutput();
+  }, [fromAmount, fromToken, toToken, swapRouterAddress, getSwapOutputAmount]);
+  
   const handleFromTokenChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const tokenAddress = event.target.value;
     const token = availableTokens.find(t => t.address === tokenAddress);
     if (token) {
+      // Don't allow selecting the same token
+      if (token.address === toToken.address) {
+        handleSwapTokens();
+        return;
+      }
+      
       setFromToken(token);
-      updateSwapRate(token, toToken);
+      setFromAmount(''); // Reset amount when token changes
+      setToAmount('');
     }
   };
 
@@ -67,50 +123,23 @@ const Swap: React.FC = () => {
     const tokenAddress = event.target.value;
     const token = availableTokens.find(t => t.address === tokenAddress);
     if (token) {
+      // Don't allow selecting the same token
+      if (token.address === fromToken.address) {
+        handleSwapTokens();
+        return;
+      }
+      
       setToToken(token);
-      updateSwapRate(fromToken, token);
+      setToAmount(''); // Reset amount when token changes
     }
   };
 
   const handleFromAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
-    setFromAmount(value);
     
-    // Mock calculation - would use actual exchange rate in real app
-    if (value && !isNaN(parseFloat(value))) {
-      if (fromToken.symbol === 'ETH' && toToken.symbol === 'AI') {
-        setToAmount((parseFloat(value) * 1000).toString());
-      } else if (fromToken.symbol === 'AI' && toToken.symbol === 'ETH') {
-        setToAmount((parseFloat(value) / 1000).toString());
-      } else {
-        setToAmount(value); // 1:1 for simplicity
-      }
-    } else {
-      setToAmount('');
-    }
-  };
-
-  const updateSwapRate = (from: TokenInfo, to: TokenInfo) => {
-    // Mock rates - would use oracle or liquidity pool data in real app
-    if (from.symbol === 'ETH' && to.symbol === 'AI') {
-      setSwapRate('1 ETH = 1000 AI');
-    } else if (from.symbol === 'AI' && to.symbol === 'ETH') {
-      setSwapRate('1000 AI = 1 ETH');
-    } else if (from.symbol === 'ETH' && to.symbol === 'USDT') {
-      setSwapRate('1 ETH = 1800 USDT');
-    } else if (from.symbol === 'USDT' && to.symbol === 'ETH') {
-      setSwapRate('1800 USDT = 1 ETH');
-    } else if (from.symbol === 'AI' && to.symbol === 'USDT') {
-      setSwapRate('1 AI = 1.8 USDT');
-    } else if (from.symbol === 'USDT' && to.symbol === 'AI') {
-      setSwapRate('1.8 USDT = 1 AI');
-    } else {
-      setSwapRate(`1 ${from.symbol} = 1 ${to.symbol}`);
-    }
-    
-    // Update to amount based on new rate
-    if (fromAmount) {
-      handleFromAmountChange({ target: { value: fromAmount } } as React.ChangeEvent<HTMLInputElement>);
+    // Don't allow negative values
+    if (value === '' || parseFloat(value) >= 0) {
+      setFromAmount(value);
     }
   };
 
@@ -119,38 +148,59 @@ const Swap: React.FC = () => {
     setFromToken(toToken);
     setToToken(tempToken);
     
-    // Swap amounts too
-    setFromAmount(toAmount);
-    setToAmount(fromAmount);
-    
-    updateSwapRate(toToken, fromToken);
+    // Reset amounts
+    setFromAmount('');
+    setToAmount('');
   };
 
   const handleSwap = async () => {
-    if (!isConnected || !fromAmount || parseFloat(fromAmount) <= 0) return;
+    if (!isConnected || !fromAmount || parseFloat(fromAmount) <= 0 || !swapRouterAddress) {
+      return;
+    }
     
     try {
       useFarmStore.getState().setLoading(true);
+      useFarmStore.getState().setError(null);
       
-      // In a real implementation, this would call the contract swap method
-      console.log(`Swapping ${fromAmount} ${fromToken.symbol} for ${toAmount} ${toToken.symbol}`);
+      // Check if user has enough balance
+      const fromTokenBalance = parseFloat(fromToken.balance);
+      const fromAmountValue = parseFloat(fromAmount);
       
-      // Mock successful swap
-      setTimeout(() => {
+      if (fromAmountValue > fromTokenBalance) {
+        useFarmStore.getState().setError(`Insufficient ${fromToken.symbol} balance`);
+        return;
+      }
+      
+      // Perform the swap
+      const tx = await swap(fromToken.address, toToken.address, fromAmount);
+      
+      if (tx) {
+        // Wait for transaction to be mined
+        await tx.wait();
+        
+        // Show success message
+        alert(`Successfully swapped ${fromAmount} ${fromToken.symbol} for approximately ${toAmount} ${toToken.symbol}`);
+        
         // Reset form
         setFromAmount('');
         setToAmount('');
         
-        // Show success message
-        useFarmStore.getState().setError(null);
-        alert(`Successfully swapped ${fromAmount} ${fromToken.symbol} for ${toAmount} ${toToken.symbol}`);
+        // Update token balances
+        const updatedFromToken = await getTokenInfo(fromToken.address);
+        const updatedToToken = await getTokenInfo(toToken.address);
         
-        useFarmStore.getState().setLoading(false);
-      }, 2000);
-      
+        if (updatedFromToken) {
+          useFarmStore.getState().updateTokenBalance(fromToken.address, updatedFromToken.balance);
+        }
+        
+        if (updatedToToken) {
+          useFarmStore.getState().updateTokenBalance(toToken.address, updatedToToken.balance);
+        }
+      }
     } catch (err: any) {
       console.error('Error swapping tokens:', err);
       useFarmStore.getState().setError(err.message || 'Failed to swap tokens');
+    } finally {
       useFarmStore.getState().setLoading(false);
     }
   };
@@ -158,13 +208,18 @@ const Swap: React.FC = () => {
   const getSelectedTokenBalance = (token: TokenInfo) => {
     return token.balance || '0';
   };
+  
+  const getMaxAmount = () => {
+    const balance = getSelectedTokenBalance(fromToken);
+    setFromAmount(balance);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-md">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-4">Swap Tokens</h1>
         <p className="text-gray-600">
-          Exchange tokens at the best rates with lowest fees
+          Exchange tokens at the best rates with low fees ({lpFee}% LP, {protocolFee}% protocol)
         </p>
       </div>
       
@@ -179,8 +234,14 @@ const Swap: React.FC = () => {
           <div className="mb-6">
             <div className="flex justify-between mb-2">
               <label className="text-sm text-gray-700">From</label>
-              <div className="text-sm text-gray-600">
-                Balance: {getSelectedTokenBalance(fromToken)} {fromToken.symbol}
+              <div className="text-sm text-gray-600 flex">
+                <span>Balance: {getSelectedTokenBalance(fromToken)} {fromToken.symbol}</span>
+                <button 
+                  className="ml-2 text-blue-500 text-xs font-medium"
+                  onClick={getMaxAmount}
+                >
+                  MAX
+                </button>
               </div>
             </div>
             
@@ -191,12 +252,14 @@ const Swap: React.FC = () => {
                 placeholder="0.0"
                 value={fromAmount}
                 onChange={handleFromAmountChange}
+                disabled={isLoading}
               />
               
               <select
                 className="border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 value={fromToken.address}
                 onChange={handleFromTokenChange}
+                disabled={isLoading}
               >
                 {availableTokens.map(token => (
                   <option key={token.address} value={token.address}>
@@ -212,6 +275,7 @@ const Swap: React.FC = () => {
             <button 
               onClick={handleSwapTokens}
               className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors"
+              disabled={isLoading}
             >
               <ArrowsUpDownIcon className="h-5 w-5 text-gray-600" />
             </button>
@@ -220,7 +284,7 @@ const Swap: React.FC = () => {
           {/* To Token */}
           <div className="mb-6">
             <div className="flex justify-between mb-2">
-              <label className="text-sm text-gray-700">To</label>
+              <label className="text-sm text-gray-700">To (estimated)</label>
               <div className="text-sm text-gray-600">
                 Balance: {getSelectedTokenBalance(toToken)} {toToken.symbol}
               </div>
@@ -239,6 +303,7 @@ const Swap: React.FC = () => {
                 className="border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 value={toToken.address}
                 onChange={handleToTokenChange}
+                disabled={isLoading}
               >
                 {availableTokens.map(token => (
                   <option key={token.address} value={token.address}>
@@ -249,38 +314,31 @@ const Swap: React.FC = () => {
             </div>
           </div>
           
-          {/* Exchange Rate */}
-          <div className="text-center text-sm text-gray-500 mb-4">
-            {swapRate}
-          </div>
-          
-          {/* Slippage Settings */}
-          <div className="mb-4">
-            <div className="text-sm text-gray-700 mb-2">Slippage Tolerance</div>
-            <div className="flex space-x-2">
-              {[0.5, 1, 2, 5].map(value => (
-                <button
-                  key={value}
-                  onClick={() => setSlippage(value)}
-                  className={`px-2 py-1 text-sm rounded ${
-                    slippage === value 
-                      ? 'bg-primary-500 text-white' 
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  }`}
-                >
-                  {value}%
-                </button>
-              ))}
+          {/* Price and slippage info */}
+          {swapRate && (
+            <div className="bg-gray-50 rounded-md p-3 mb-6">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Price</span>
+                <span>{swapRate}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600 mt-2">
+                <span>Fee</span>
+                <span>{parseFloat(lpFee) + parseFloat(protocolFee)}% ({lpFee}% LP + {protocolFee}% protocol)</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600 mt-2">
+                <span>Slippage Tolerance</span>
+                <span>{slippage}%</span>
+              </div>
             </div>
-          </div>
+          )}
           
           {/* Swap Button */}
-          <button 
-            className="btn btn-primary w-full py-3"
+          <button
+            className="btn-primary w-full py-3 rounded-md"
             onClick={handleSwap}
-            disabled={!fromAmount || parseFloat(fromAmount) <= 0}
+            disabled={!fromAmount || parseFloat(fromAmount) <= 0 || !toAmount || parseFloat(toAmount) <= 0 || isLoading}
           >
-            Swap
+            {isLoading ? 'Swapping...' : 'Swap'}
           </button>
         </div>
       )}

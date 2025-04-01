@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -19,7 +19,7 @@ contract SwapRouterUpgradeable is
     PausableUpgradeable,
     UUPSUpgradeable 
 {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     // Fee configuration
     uint256 public constant FEE_DENOMINATOR = 10000;
@@ -90,7 +90,6 @@ contract SwapRouterUpgradeable is
     
     event TreasuryUpdated(address oldTreasury, address newTreasury);
     event FeeUpdated(uint256 newFee);
-    event Upgraded(address indexed implementation);
     
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -100,7 +99,7 @@ contract SwapRouterUpgradeable is
     /// @notice Initializes the contract, replacing the constructor for upgradeable contracts
     /// @param _treasury Treasury address to receive protocol fees
     /// @param _fee Fee in basis points (e.g., 30 = 0.3%)
-    function initialize(address _treasury, uint256 _fee) public initializer {
+    function initialize(address _treasury, uint256 _fee) public virtual initializer {
         require(_treasury != address(0), "Invalid treasury address");
         require(_fee < 1000, "Fee cannot exceed 10%");
         
@@ -114,18 +113,18 @@ contract SwapRouterUpgradeable is
     }
     
     /// @notice Pauses all non-admin functions
-    function pause() external onlyOwner {
+    function pause() external virtual onlyOwner {
         _pause();
     }
     
     /// @notice Unpauses the contract
-    function unpause() external onlyOwner {
+    function unpause() external virtual onlyOwner {
         _unpause();
     }
     
     /// @notice Set the treasury address
     /// @param _treasury New treasury address
-    function setTreasury(address _treasury) external onlyOwner {
+    function setTreasury(address _treasury) external virtual onlyOwner {
         require(_treasury != address(0), "Invalid treasury address");
         address oldTreasury = treasury;
         treasury = _treasury;
@@ -136,7 +135,7 @@ contract SwapRouterUpgradeable is
     /// @param tokenA First token address
     /// @param tokenB Second token address
     /// @param rate New exchange rate (1 tokenA = rate * 10^18 tokenB)
-    function setExchangeRate(address tokenA, address tokenB, uint256 rate) external onlyOwner {
+    function setExchangeRate(address tokenA, address tokenB, uint256 rate) external virtual onlyOwner {
         require(tokenA != address(0) && tokenB != address(0), "Invalid token address");
         require(rate > 0, "Rate must be greater than 0");
         
@@ -153,13 +152,13 @@ contract SwapRouterUpgradeable is
     /// @param tokenB Second token address
     /// @param amountA Amount of first token
     /// @param amountB Amount of second token
-    function addLiquidity(address tokenA, address tokenB, uint256 amountA, uint256 amountB) external nonReentrant whenNotPaused {
+    function addLiquidity(address tokenA, address tokenB, uint256 amountA, uint256 amountB) external virtual nonReentrant whenNotPaused {
         require(tokenA != address(0) && tokenB != address(0), "Invalid token address");
         require(amountA > 0 && amountB > 0, "Amounts must be greater than 0");
         
         // Transfer tokens from caller to contract
-        IERC20Upgradeable(tokenA).transferFrom(msg.sender, address(this), amountA);
-        IERC20Upgradeable(tokenB).transferFrom(msg.sender, address(this), amountB);
+        IERC20(tokenA).transferFrom(msg.sender, address(this), amountA);
+        IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
         
         // Update LP balances
         lpBalances[tokenA][tokenB] += amountA;
@@ -183,7 +182,7 @@ contract SwapRouterUpgradeable is
     /// @param toToken Destination token address
     /// @param amount Amount of source token to swap
     /// @return The amount of destination token received
-    function swap(address fromToken, address toToken, uint256 amount) external nonReentrant whenNotPaused returns (uint256) {
+    function swap(address fromToken, address toToken, uint256 amount) external virtual nonReentrant whenNotPaused returns (uint256) {
         require(fromToken != address(0) && toToken != address(0), "Invalid token address");
         require(amount > 0, "Amount must be greater than 0");
         require(exchangeRates[fromToken][toToken] > 0, "Exchange rate not set");
@@ -198,20 +197,20 @@ contract SwapRouterUpgradeable is
         uint256 finalOutputAmount = outputAmount - lpFeeAmount - protocolFeeAmount;
         
         // Check if contract has enough liquidity
-        require(IERC20Upgradeable(toToken).balanceOf(address(this)) >= finalOutputAmount, "Insufficient liquidity");
+        require(lpBalances[toToken][fromToken] >= finalOutputAmount, "Insufficient liquidity");
         
-        // Transfer input tokens from user to contract
-        require(IERC20Upgradeable(fromToken).transferFrom(msg.sender, address(this), amount), "Transfer from failed");
+        // Transfer tokens: from user to contract, from contract to user
+        IERC20(fromToken).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(toToken).safeTransfer(msg.sender, finalOutputAmount);
         
-        // Transfer output tokens to user
-        require(IERC20Upgradeable(toToken).transfer(msg.sender, finalOutputAmount), "Transfer to failed");
+        // Update LP balances
+        lpBalances[fromToken][toToken] += amount;
+        lpBalances[toToken][fromToken] -= finalOutputAmount;
         
-        // Transfer protocol fee to treasury
-        if (protocolFeeAmount > 0) {
-            require(IERC20Upgradeable(toToken).transfer(treasury, protocolFeeAmount), "Protocol fee transfer failed");
+        // Send protocol fee to treasury if it's set
+        if (protocolFeeAmount > 0 && treasury != address(0)) {
+            IERC20(toToken).safeTransfer(treasury, protocolFeeAmount);
         }
-        
-        // LP fees remain in the contract
         
         emit TokenSwap(
             msg.sender,
@@ -221,6 +220,14 @@ contract SwapRouterUpgradeable is
             finalOutputAmount,
             lpFeeAmount,
             protocolFeeAmount
+        );
+        
+        emit Swap(
+            msg.sender,
+            fromToken,
+            toToken,
+            amount,
+            finalOutputAmount
         );
         
         return finalOutputAmount;
@@ -245,9 +252,9 @@ contract SwapRouterUpgradeable is
         return outputAmount - lpFeeAmount - protocolFeeAmount;
     }
     
-    /// @notice Update fee percentage
-    /// @param _fee New fee (in basis points)
-    function setFee(uint256 _fee) external onlyOwner {
+    /// @notice Update fee setting
+    /// @param _fee New fee in basis points
+    function setFee(uint256 _fee) external virtual onlyOwner {
         require(_fee < 1000, "Fee cannot exceed 10%");
         fee = _fee;
         emit FeeUpdated(_fee);
@@ -258,14 +265,13 @@ contract SwapRouterUpgradeable is
     /// @param amount Amount to withdraw
     function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
         require(token != address(0), "Invalid token address");
-        require(IERC20Upgradeable(token).transfer(msg.sender, amount), "Transfer failed");
+        require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
     }
     
-    /// @notice Function that allows the contract to be upgraded
-    /// @dev Only callable by the owner
-    /// @param newImplementation Address of the new implementation
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
-        emit Upgraded(newImplementation);
+    /// @notice Authorize contract upgrade
+    /// @param newImplementation New implementation address
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {
+        // Validation logic can be added here if needed
     }
     
     /// @notice Returns the current contract version

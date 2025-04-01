@@ -5,11 +5,14 @@ import {
   FARM_ABI, 
   FACTORY_ABI, 
   ERC20_ABI,
+  SWAP_ROUTER_ABI,
   PoolInfo,
   UserInfo,
   TokenInfo,
-  FarmData
+  FarmData,
+  SwapInfo
 } from '../types';
+import { useFarmStore } from '../store';
 
 // Get environment variables or use defaults
 const FACTORY_ADDRESS = process.env.REACT_APP_FACTORY_ADDRESS || '0xE86cD948176C121C8AD25482F6Af3B1BC3F527Df';
@@ -17,7 +20,9 @@ const FACTORY_ADDRESS = process.env.REACT_APP_FACTORY_ADDRESS || '0xE86cD948176C
 interface UseContractsReturn {
   factoryContract: ethers.Contract | null;
   farmContract: ethers.Contract | null;
+  swapRouterContract: ethers.Contract | null;
   loadFarmContract: (farmAddress: string) => void;
+  loadSwapRouterContract: (routerAddress: string) => void;
   getTokenContract: (tokenAddress: string) => ethers.Contract | null;
   getFarmData: () => Promise<FarmData | null>;
   getPools: () => Promise<PoolInfo[]>;
@@ -33,6 +38,15 @@ interface UseContractsReturn {
   compound: (pid: number) => Promise<ethers.ContractTransaction | null>;
   createFarm: (rewardToken: string, rewardPerSecond: string, startTime: number) => Promise<ethers.ContractTransaction | null>;
   getPendingReward: (pid: number, userAddress: string) => Promise<string>;
+  // Swap functions
+  createSwapRouter: (treasury: string) => Promise<ethers.ContractTransaction | null>;
+  getSwapRouter: () => Promise<string>;
+  getSwapExchangeRate: (fromToken: string, toToken: string) => Promise<string>;
+  getSwapOutputAmount: (fromToken: string, toToken: string, amount: string) => Promise<string>;
+  swap: (fromToken: string, toToken: string, amount: string) => Promise<ethers.ContractTransaction | null>;
+  addLiquidity: (tokenA: string, tokenB: string, amountA: string, amountB: string) => Promise<ethers.ContractTransaction | null>;
+  setExchangeRate: (tokenA: string, tokenB: string, rate: string) => Promise<ethers.ContractTransaction | null>;
+  getSwapInfo: () => Promise<SwapInfo | null>;
   isLoading: boolean;
   error: string | null;
 }
@@ -41,6 +55,7 @@ const useContracts = (): UseContractsReturn => {
   const { provider, signer, isConnected } = useWeb3();
   const [factoryContract, setFactoryContract] = useState<ethers.Contract | null>(null);
   const [farmContract, setFarmContract] = useState<ethers.Contract | null>(null);
+  const [swapRouterContract, setSwapRouterContract] = useState<ethers.Contract | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +90,24 @@ const useContracts = (): UseContractsReturn => {
     } catch (err: any) {
       console.error('Error loading farm contract:', err);
       setError('Failed to load farm contract');
+    }
+  }, [provider]);
+
+  // Load swap router contract
+  const loadSwapRouterContract = useCallback((routerAddress: string) => {
+    if (!provider) return;
+    
+    try {
+      const contract = new ethers.Contract(
+        routerAddress,
+        SWAP_ROUTER_ABI,
+        provider
+      );
+      setSwapRouterContract(contract);
+      useFarmStore.getState().setSwapRouterAddress(routerAddress);
+    } catch (err: any) {
+      console.error('Error loading swap router contract:', err);
+      setError('Failed to load swap router contract');
     }
   }, [provider]);
 
@@ -202,22 +235,15 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      // In this simplified version, we just get user info from the contract
-      const [userInfoData, pendingReward] = await Promise.all([
-        farmContract.getUserInfo(userAddress),
-        farmContract.getPendingReward(userAddress),
-      ]);
+      const [amount, rewardDebt] = await farmContract.getUserInfo(userAddress);
+      const pendingReward = await farmContract.getPendingReward(userAddress);
       
-      // userInfoData is expected to be an array with [amount, rewardDebt]
-      const userInfoResult: UserInfo = {
-        amount: ethers.utils.formatEther(userInfoData[0]),
-        rewardDebt: ethers.utils.formatEther(userInfoData[1]),
+      return {
+        amount: ethers.utils.formatEther(amount),
+        rewardDebt: ethers.utils.formatEther(rewardDebt),
         pendingReward: ethers.utils.formatEther(pendingReward),
-        pendingRewards: ethers.utils.formatEther(pendingReward), // Alias for compatibility
-        unlockTime: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // Mock value: 7 days from now
+        unlockTime: 0, // not implemented in the current contract
       };
-      
-      return userInfoResult;
     } catch (err: any) {
       console.error('Error getting user info:', err);
       setError('Failed to get user info');
@@ -229,7 +255,7 @@ const useContracts = (): UseContractsReturn => {
 
   // Get token info
   const getTokenInfo = async (tokenAddress: string): Promise<TokenInfo | null> => {
-    if (!provider || !signer) return null;
+    if (!provider) return null;
     setIsLoading(true);
     setError(null);
     
@@ -237,12 +263,13 @@ const useContracts = (): UseContractsReturn => {
       const tokenContract = getTokenContract(tokenAddress);
       if (!tokenContract) return null;
       
-      const userAddress = await signer.getAddress();
+      const account = useFarmStore.getState().account;
+      
       const [name, symbol, decimals, balance] = await Promise.all([
         tokenContract.name(),
         tokenContract.symbol(),
         tokenContract.decimals(),
-        tokenContract.balanceOf(userAddress),
+        account ? tokenContract.balanceOf(account) : ethers.BigNumber.from(0),
       ]);
       
       return {
@@ -264,51 +291,67 @@ const useContracts = (): UseContractsReturn => {
   // Get reward token
   const getRewardToken = async (): Promise<string | null> => {
     if (!farmContract) return null;
-    
-    try {
-      return await farmContract.rewardToken();
-    } catch (err) {
-      console.error('Error getting reward token:', err);
-      return null;
-    }
-  };
-
-  // Deposit tokens
-  const deposit = async (pid: number, amount: string): Promise<ethers.ContractTransaction | null> => {
-    if (!farmContract || !signer) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      // For simplicity, ignoring pid as our contract has a single pool
-      const tx = await farmContract.connect(signer).stake(
-        ethers.utils.parseEther(amount)
-      );
-      return tx;
+      return await farmContract.rewardToken();
     } catch (err: any) {
-      console.error('Error depositing:', err);
-      setError(err.message || 'Failed to deposit');
+      console.error('Error getting reward token:', err);
+      setError('Failed to get reward token');
       return null;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Withdraw tokens
+  // Deposit tokens to farm
+  const deposit = async (pid: number, amount: string): Promise<ethers.ContractTransaction | null> => {
+    if (!farmContract || !signer) return null;
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const stakingTokenAddress = await farmContract.stakingToken();
+      const tokenContract = new ethers.Contract(stakingTokenAddress, ERC20_ABI, signer);
+      
+      const decimals = await tokenContract.decimals();
+      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      
+      // Approve tokens first
+      const tx1 = await tokenContract.approve(farmContract.address, parsedAmount);
+      await tx1.wait();
+      
+      // Then deposit
+      const tx2 = await farmContract.connect(signer).deposit(0, parsedAmount);
+      return tx2;
+    } catch (err: any) {
+      console.error('Error depositing tokens:', err);
+      setError('Failed to deposit tokens: ' + err.message);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Withdraw tokens from farm
   const withdraw = async (pid: number, amount: string): Promise<ethers.ContractTransaction | null> => {
     if (!farmContract || !signer) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      // For simplicity, ignoring pid as our contract has a single pool
-      const tx = await farmContract.connect(signer).withdraw(
-        ethers.utils.parseEther(amount)
-      );
+      const stakingTokenAddress = await farmContract.stakingToken();
+      const tokenContract = new ethers.Contract(stakingTokenAddress, ERC20_ABI, signer);
+      
+      const decimals = await tokenContract.decimals();
+      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      
+      const tx = await farmContract.connect(signer).withdraw(0, parsedAmount);
       return tx;
     } catch (err: any) {
-      console.error('Error withdrawing:', err);
-      setError(err.message || 'Failed to withdraw');
+      console.error('Error withdrawing tokens:', err);
+      setError('Failed to withdraw tokens: ' + err.message);
       return null;
     } finally {
       setIsLoading(false);
@@ -322,19 +365,18 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      // For simplicity, ignoring pid as our contract has a single pool
-      const tx = await farmContract.connect(signer).compound();
+      const tx = await farmContract.connect(signer).compound(0);
       return tx;
     } catch (err: any) {
-      console.error('Error compounding:', err);
-      setError(err.message || 'Failed to compound');
+      console.error('Error compounding rewards:', err);
+      setError('Failed to compound rewards: ' + err.message);
       return null;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Create a new farm
+  // Create farm
   const createFarm = async (
     rewardToken: string, 
     rewardPerSecond: string, 
@@ -345,15 +387,18 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
+      const parsedRewardRate = ethers.utils.parseEther(rewardPerSecond);
+      
       const tx = await factoryContract.connect(signer).createFarm(
         rewardToken,
-        ethers.utils.parseEther(rewardPerSecond),
+        parsedRewardRate,
         startTime
       );
+      
       return tx;
     } catch (err: any) {
       console.error('Error creating farm:', err);
-      setError(err.message || 'Failed to create farm');
+      setError('Failed to create farm: ' + err.message);
       return null;
     } finally {
       setIsLoading(false);
@@ -363,33 +408,204 @@ const useContracts = (): UseContractsReturn => {
   // Get pending reward
   const getPendingReward = async (pid: number, userAddress: string): Promise<string> => {
     if (!farmContract) return '0';
+    
+    try {
+      const pendingReward = await farmContract.getPendingReward(userAddress);
+      return ethers.utils.formatEther(pendingReward);
+    } catch (err) {
+      console.error('Error getting pending reward:', err);
+      return '0';
+    }
+  };
+  
+  // Create swap router
+  const createSwapRouter = async (treasury: string): Promise<ethers.ContractTransaction | null> => {
+    if (!factoryContract || !signer) return null;
     setIsLoading(true);
     setError(null);
     
     try {
-      // For simplicity, ignoring pid as our contract has a single pool
-      const pendingReward = await farmContract.getPendingReward(userAddress);
-      return ethers.utils.formatEther(pendingReward);
+      const tx = await factoryContract.connect(signer).createSwapRouter(treasury);
+      return tx;
     } catch (err: any) {
-      console.error('Error getting pending reward:', err);
-      setError(err.message || 'Failed to get pending reward');
-      return '0';
+      console.error('Error creating swap router:', err);
+      setError('Failed to create swap router: ' + err.message);
+      return null;
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  // Get swap router
+  const getSwapRouter = async (): Promise<string> => {
+    if (!factoryContract) return '';
+    
+    try {
+      const swapRouter = await factoryContract.getSwapRouter();
+      if (swapRouter && swapRouter !== ethers.constants.AddressZero) {
+        loadSwapRouterContract(swapRouter);
+        return swapRouter;
+      }
+      return '';
+    } catch (err) {
+      console.error('Error getting swap router:', err);
+      return '';
+    }
+  };
+  
+  // Get exchange rate
+  const getSwapExchangeRate = async (fromToken: string, toToken: string): Promise<string> => {
+    if (!swapRouterContract) return '0';
+    
+    try {
+      const rate = await swapRouterContract.exchangeRates(fromToken, toToken);
+      return ethers.utils.formatEther(rate);
+    } catch (err) {
+      console.error('Error getting exchange rate:', err);
+      return '0';
+    }
+  };
+  
+  // Get output amount
+  const getSwapOutputAmount = async (fromToken: string, toToken: string, amount: string): Promise<string> => {
+    if (!swapRouterContract) return '0';
+    
+    try {
+      const tokenContract = getTokenContract(fromToken);
+      if (!tokenContract) return '0';
+      
+      const decimals = await tokenContract.decimals();
+      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      
+      const outputAmount = await swapRouterContract.getOutputAmount(fromToken, toToken, parsedAmount);
+      
+      const outputTokenContract = getTokenContract(toToken);
+      if (!outputTokenContract) return '0';
+      
+      const outputDecimals = await outputTokenContract.decimals();
+      return ethers.utils.formatUnits(outputAmount, outputDecimals);
+    } catch (err) {
+      console.error('Error getting output amount:', err);
+      return '0';
+    }
+  };
+  
+  // Swap tokens
+  const swap = async (fromToken: string, toToken: string, amount: string): Promise<ethers.ContractTransaction | null> => {
+    if (!swapRouterContract || !signer) return null;
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const tokenContract = new ethers.Contract(fromToken, ERC20_ABI, signer);
+      const decimals = await tokenContract.decimals();
+      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      
+      // Approve tokens first
+      const tx1 = await tokenContract.approve(swapRouterContract.address, parsedAmount);
+      await tx1.wait();
+      
+      // Then swap
+      const tx2 = await swapRouterContract.connect(signer).swap(fromToken, toToken, parsedAmount);
+      return tx2;
+    } catch (err: any) {
+      console.error('Error swapping tokens:', err);
+      setError('Failed to swap tokens: ' + err.message);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Add liquidity
+  const addLiquidity = async (tokenA: string, tokenB: string, amountA: string, amountB: string): Promise<ethers.ContractTransaction | null> => {
+    if (!swapRouterContract || !signer) return null;
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const tokenAContract = new ethers.Contract(tokenA, ERC20_ABI, signer);
+      const tokenBContract = new ethers.Contract(tokenB, ERC20_ABI, signer);
+      
+      const decimalsA = await tokenAContract.decimals();
+      const decimalsB = await tokenBContract.decimals();
+      
+      const parsedAmountA = ethers.utils.parseUnits(amountA, decimalsA);
+      const parsedAmountB = ethers.utils.parseUnits(amountB, decimalsB);
+      
+      // Approve tokens first
+      const tx1 = await tokenAContract.approve(swapRouterContract.address, parsedAmountA);
+      await tx1.wait();
+      
+      const tx2 = await tokenBContract.approve(swapRouterContract.address, parsedAmountB);
+      await tx2.wait();
+      
+      // Then add liquidity
+      const tx3 = await swapRouterContract.connect(signer).addLiquidity(tokenA, tokenB, parsedAmountA, parsedAmountB);
+      return tx3;
+    } catch (err: any) {
+      console.error('Error adding liquidity:', err);
+      setError('Failed to add liquidity: ' + err.message);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Set exchange rate
+  const setExchangeRate = async (tokenA: string, tokenB: string, rate: string): Promise<ethers.ContractTransaction | null> => {
+    if (!swapRouterContract || !signer) return null;
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const parsedRate = ethers.utils.parseEther(rate);
+      const tx = await swapRouterContract.connect(signer).setExchangeRate(tokenA, tokenB, parsedRate);
+      return tx;
+    } catch (err: any) {
+      console.error('Error setting exchange rate:', err);
+      setError('Failed to set exchange rate: ' + err.message);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Get swap info
+  const getSwapInfo = async (): Promise<SwapInfo | null> => {
+    if (!swapRouterContract) return null;
+    
+    try {
+      const [lpFee, protocolFee, treasury] = await Promise.all([
+        swapRouterContract.lpFee(),
+        swapRouterContract.protocolFee(),
+        swapRouterContract.treasury(),
+      ]);
+      
+      return {
+        lpFee: lpFee.toString(),
+        protocolFee: protocolFee.toString(),
+        treasury,
+      };
+    } catch (err) {
+      console.error('Error getting swap info:', err);
+      return null;
     }
   };
 
   return {
     factoryContract,
     farmContract,
+    swapRouterContract,
     loadFarmContract,
+    loadSwapRouterContract,
     getTokenContract,
     getFarmData,
     getPools,
     getUserInfo,
     getTokenInfo,
     getRewardToken,
-    factory: factoryContract, // Alias for compatibility with Farms component
+    factory: factoryContract,
     getStakingTokenSymbol,
     getRewardTokenSymbol,
     deposit,
@@ -397,6 +613,15 @@ const useContracts = (): UseContractsReturn => {
     compound,
     createFarm,
     getPendingReward,
+    // Swap functions
+    createSwapRouter,
+    getSwapRouter,
+    getSwapExchangeRate,
+    getSwapOutputAmount,
+    swap,
+    addLiquidity,
+    setExchangeRate,
+    getSwapInfo,
     isLoading,
     error,
   };

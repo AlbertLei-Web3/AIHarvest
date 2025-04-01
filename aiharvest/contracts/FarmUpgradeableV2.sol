@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-// 自定义错误
+// 自定义错�?
 error InvalidPoolId(uint256 pid);
 error InsufficientBalance(uint256 requested, uint256 available);
 error TokensLocked(uint256 unlockTime, uint256 currentTime);
@@ -35,7 +35,7 @@ contract FarmUpgradeableV2 is
     PausableUpgradeable,
     UUPSUpgradeable
 {
-    // 状态变量
+    // 状态变�?
     struct UserInfo {
         uint256 amount;         // LP代币数量
         uint256 rewardDebt;     // 已结算的奖励债务
@@ -45,27 +45,27 @@ contract FarmUpgradeableV2 is
     }
 
     struct PoolInfo {
-        IERC20Upgradeable lpToken;     // LP代币合约地址
+        IERC20 lpToken;     // LP代币合约地址
         uint256 allocPoint;     // 分配权重
         uint256 lastRewardTime; // 最后更新奖励的时间
-        uint256 accRewardPerShare; // 每份LP的累计奖励
+        uint256 accRewardPerShare; // 每份LP的累计奖�?
         uint256 lockDuration;   // 锁定期（秒）
-        uint256 earlyUnlockFeePercent; // 提前解锁费用百分比 (100 = 1%)
+        uint256 earlyUnlockFeePercent; // 提前解锁费用百分�?(100 = 1%)
     }
 
-    IERC20Upgradeable public rewardToken;  // 奖励代币
+    IERC20 public rewardToken;  // 奖励代币
     uint256 public rewardPerSecond; // 每秒奖励数量
-    uint256 public startTime;   // 开始时间
+    uint256 public startTime;   // 开始时�?
     uint256 public endTime;     // 结束时间
     address public factoryAddress; // 工厂合约地址
     
-    // V2新增状态变量
-    address public treasury;    // 国库地址，收取提前解锁费用
-    uint256 public boostFeesCollected; // 已收集的加速费用
+    // V2新增状态变�?
+    address public treasury;    // 国库地址，收取提前解锁费�?
+    uint256 public boostFeesCollected; // 已收集的加速费�?
     uint256 public unlockFeesCollected; // 已收集的提前解锁费用
-    mapping(uint256 => bool) public boostEnabled; // 池子是否支持奖励加速
+    mapping(uint256 => bool) public boostEnabled; // 池子是否支持奖励加�?
     
-    // 奖励加速费率配置
+    // 奖励加速费率配�?
     struct BoostConfig {
         uint256 minDuration;    // 最小加速期
         uint256 maxDuration;    // 最大加速期
@@ -74,7 +74,7 @@ contract FarmUpgradeableV2 is
         uint256 feePercentPerPoint; // 每点倍率的费用百分比
     }
     
-    mapping(uint256 => BoostConfig) public poolBoostConfig; // 每个池子的奖励加速配置
+    mapping(uint256 => BoostConfig) public poolBoostConfig; // 每个池子的奖励加速配�?
 
     PoolInfo[] public poolInfo;
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
@@ -92,7 +92,6 @@ contract FarmUpgradeableV2 is
     event AllocationPointUpdated(uint256 indexed pid, uint256 oldAllocPoint, uint256 newAllocPoint);
     event FactoryAddressUpdated(address oldAddress, address newAddress);
     event RewardTransferFailed(address to, uint256 amount);
-    event Upgraded(address indexed implementation);
     event TreasuryUpdated(address oldTreasury, address newTreasury);
     event PoolLockDurationUpdated(uint256 indexed pid, uint256 oldDuration, uint256 newDuration);
     event PoolUnlockFeeUpdated(uint256 indexed pid, uint256 oldFee, uint256 newFee);
@@ -109,7 +108,7 @@ contract FarmUpgradeableV2 is
 
     /// @notice Initializes the contract (already implemented in V1)
     function initialize(
-        IERC20Upgradeable _rewardToken,
+        IERC20 _rewardToken,
         uint256 _rewardPerSecond,
         uint256 _startTime,
         address _factoryAddress
@@ -149,16 +148,16 @@ contract FarmUpgradeableV2 is
     /// @param _lockDuration Lock duration in seconds
     /// @param _unlockFeePercent Early unlock fee percentage
     function addPoolV2(
-        IERC20Upgradeable _lpToken, 
+        IERC20 _lpToken, 
         uint256 _allocPoint, 
         uint256 _lockDuration,
         uint256 _unlockFeePercent
     ) external onlyOwner {
         if (address(_lpToken) == address(0)) revert("Invalid LP token address");
         if (lpTokenAdded[address(_lpToken)]) revert PoolAlreadyExists(address(_lpToken));
-        if (_unlockFeePercent > 5000) revert("Unlock fee too high"); // 最高50%
+        if (_unlockFeePercent > 5000) revert("Unlock fee too high"); // 最�?0%
         
-        _updateAllPools();
+        updateAllPools();
         totalAllocPoint += _allocPoint;
         
         uint256 pid = poolInfo.length;
@@ -194,7 +193,7 @@ contract FarmUpgradeableV2 is
     /// @param _unlockFeePercent New early unlock fee percentage
     function setPoolUnlockFee(uint256 _pid, uint256 _unlockFeePercent) external onlyOwner {
         if (_pid >= poolInfo.length) revert InvalidPoolId(_pid);
-        if (_unlockFeePercent > 5000) revert("Unlock fee too high"); // 最高50%
+        if (_unlockFeePercent > 5000) revert("Unlock fee too high"); // 最�?0%
         
         uint256 oldFee = poolInfo[_pid].earlyUnlockFeePercent;
         poolInfo[_pid].earlyUnlockFeePercent = _unlockFeePercent;
@@ -253,25 +252,25 @@ contract FarmUpgradeableV2 is
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         
-        _updatePool(_pid);
+        updatePool(_pid);
         
         if (user.amount > 0) {
-            uint256 pending = _pendingReward(_pid, msg.sender);
+            uint256 pending = pendingReward(_pid, msg.sender);
             if (pending > 0) {
-                _safeRewardTransfer(msg.sender, pending);
+                safeRewardTransfer(msg.sender, pending);
             }
         }
         
         if (_amount > 0) {
-            // 检查用户余额
+            // 检查用户余�?
             uint256 balance = pool.lpToken.balanceOf(msg.sender);
             if (balance < _amount) revert InsufficientBalance(_amount, balance);
             
-            // 检查授权额度
+            // 检查授权额�?
             uint256 allowance = pool.lpToken.allowance(msg.sender, address(this));
             if (allowance < _amount) revert("Insufficient allowance");
             
-            // 转账前保存余额
+            // 转账前保存余�?
             uint256 beforeBalance = pool.lpToken.balanceOf(address(this));
             
             // 执行转账
@@ -284,7 +283,7 @@ contract FarmUpgradeableV2 is
             
             user.amount += _amount;
             
-            // 使用池配置的锁定期
+            // 使用池配置的锁定�?
             user.unlockTime = block.timestamp + pool.lockDuration;
         }
         
@@ -312,10 +311,10 @@ contract FarmUpgradeableV2 is
         // 计算费用
         uint256 extraMultiplier = _requestedMultiplier - 100; // 减去基础倍率(1x)
         uint256 feePercent = extraMultiplier * config.feePercentPerPoint;
-        uint256 fee = (user.amount * feePercent) / 10000; // 费用百分比
+        uint256 fee = (user.amount * feePercent) / 10000; // 费用百分�?
         
         // 收取费用
-        IERC20Upgradeable token = rewardToken;
+        IERC20 token = rewardToken;
         require(token.balanceOf(msg.sender) >= fee, "Insufficient balance for fee");
         require(token.allowance(msg.sender, address(this)) >= fee, "Insufficient allowance for fee");
         
@@ -324,14 +323,14 @@ contract FarmUpgradeableV2 is
         
         boostFeesCollected += fee;
         
-        // 更新奖励状态
-        _updatePool(_pid);
-        uint256 pending = _pendingReward(_pid, msg.sender);
+        // 更新奖励状�?
+        updatePool(_pid);
+        uint256 pending = pendingReward(_pid, msg.sender);
         if (pending > 0) {
-            _safeRewardTransfer(msg.sender, pending);
+            safeRewardTransfer(msg.sender, pending);
         }
         
-        // 设置用户的加速信息
+        // 设置用户的加速信�?
         user.boostMultiplier = _requestedMultiplier;
         user.boostEndTime = block.timestamp + _duration;
         user.rewardDebt = user.amount * poolInfo[_pid].accRewardPerShare / 1e12;
@@ -357,7 +356,7 @@ contract FarmUpgradeableV2 is
         }
         
         // 收取费用
-        IERC20Upgradeable token = pool.lpToken;
+        IERC20 token = pool.lpToken;
         require(token.balanceOf(msg.sender) >= unlockFee, "Insufficient balance for unlock fee");
         require(token.allowance(msg.sender, address(this)) >= unlockFee, "Insufficient allowance for unlock fee");
         
@@ -366,7 +365,7 @@ contract FarmUpgradeableV2 is
         
         unlockFeesCollected += unlockFee;
         
-        // 设置解锁时间为当前时间
+        // 设置解锁时间为当前时�?
         user.unlockTime = block.timestamp;
         
         emit EarlyUnlock(msg.sender, _pid, unlockFee);
@@ -380,7 +379,7 @@ contract FarmUpgradeableV2 is
         require(_token != address(0), "Invalid token address");
         require(treasury != address(0), "Treasury not set");
         
-        IERC20Upgradeable token = IERC20Upgradeable(_token);
+        IERC20 token = IERC20(_token);
         uint256 balance = token.balanceOf(address(this));
         require(balance >= _amount, "Insufficient balance");
         
@@ -390,34 +389,16 @@ contract FarmUpgradeableV2 is
         emit FeesWithdrawn(_token, treasury, _amount);
     }
     
-    /// @notice Internal function to calculate pending rewards with boost
-    /// @param _pid Pool ID
-    /// @param _user User address
-    /// @return Pending reward amount
-    function _pendingReward(uint256 _pid, address _user) internal view returns (uint256) {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_user];
-        uint256 accRewardPerShare = pool.accRewardPerShare;
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-
-        if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
-            uint256 multiplier = block.timestamp - pool.lastRewardTime;
-            uint256 reward = multiplier * rewardPerSecond * pool.allocPoint / totalAllocPoint;
-            accRewardPerShare += reward * 1e12 / lpSupply;
+    /// Internal function to update all pools
+    function updateAllPools() internal {
+        uint256 length = poolInfo.length;
+        for (uint256 pid = 0; pid < length; ++pid) {
+            updatePool(pid);
         }
-        
-        uint256 baseReward = (user.amount * accRewardPerShare / 1e12) - user.rewardDebt;
-        
-        // 应用奖励加速
-        if (boostEnabled[_pid] && user.boostMultiplier > 100 && block.timestamp < user.boostEndTime) {
-            return (baseReward * user.boostMultiplier) / 100;
-        }
-        
-        return baseReward;
     }
     
-    // 重写池子奖励更新逻辑，以支持奖励加速
-    function _updatePool(uint256 _pid) internal override {
+    /// Update reward variables of the given pool
+    function updatePool(uint256 _pid) public {
         PoolInfo storage pool = poolInfo[_pid];
         if (block.timestamp <= pool.lastRewardTime) {
             return;
@@ -435,12 +416,42 @@ contract FarmUpgradeableV2 is
         pool.lastRewardTime = block.timestamp;
     }
     
-    // 重写pendingReward函数，以支持奖励加速
-    function pendingReward(uint256 _pid, address _user) external view returns (uint256) {
-        if (_pid >= poolInfo.length) revert InvalidPoolId(_pid);
-        if (_user == address(0)) revert("Invalid user address");
+    /// @notice Internal function to calculate pending rewards with boost
+    /// @param _pid Pool ID
+    /// @param _user User address
+    /// @return Pending reward amount
+    function pendingReward(uint256 _pid, address _user) public view returns (uint256) {
+        PoolInfo storage pool = poolInfo[_pid];
+        UserInfo storage user = userInfo[_pid][_user];
+        uint256 accRewardPerShare = pool.accRewardPerShare;
+        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
+
+        if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
+            uint256 multiplier = block.timestamp - pool.lastRewardTime;
+            uint256 reward = multiplier * rewardPerSecond * pool.allocPoint / totalAllocPoint;
+            accRewardPerShare += reward * 1e12 / lpSupply;
+        }
         
-        return _pendingReward(_pid, _user);
+        uint256 baseReward = (user.amount * accRewardPerShare / 1e12) - user.rewardDebt;
+        
+        // 应用奖励加�?
+        if (boostEnabled[_pid] && user.boostMultiplier > 100 && block.timestamp < user.boostEndTime) {
+            return (baseReward * user.boostMultiplier) / 100;
+        }
+        
+        return baseReward;
+    }
+    
+    /// @notice Safe transfer function, just in case if rounding error causes contract to not have enough tokens
+    /// @param _to Recipient address
+    /// @param _amount Amount to transfer
+    function safeRewardTransfer(address _to, uint256 _amount) internal {
+        uint256 rewardBalance = rewardToken.balanceOf(address(this));
+        if (_amount > rewardBalance) {
+            rewardToken.transfer(_to, rewardBalance);
+        } else {
+            rewardToken.transfer(_to, _amount);
+        }
     }
     
     /// @notice Function that allows the contract to be upgraded
@@ -452,7 +463,7 @@ contract FarmUpgradeableV2 is
     
     /// @notice Returns the current contract version
     /// @return Version string
-    function version() public pure virtual override returns (string memory) {
+    function version() public pure virtual returns (string memory) {
         return "2.0.0";
     }
 } 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -14,7 +14,7 @@ import "./SwapRouterUpgradeable.sol";
 /// @notice Enhanced factory with batch deployment and farm upgrades
 /// @dev V2 adds bulk farm management and management dashboard analytics
 contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradeable {
-    // 状态变量
+    // 状态变�?
     address[] public allFarms;
     mapping(address => bool) public isFarmFromFactory;
     
@@ -22,7 +22,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
     address public swapRouterImplementation;
     address public swapRouter;
     
-    // V2新增状态变量
+    // V2新增状态变�?
     struct FarmInfo {
         address farmAddress;
         address rewardToken;
@@ -37,9 +37,9 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
     address[] public farmCategories;
     mapping(address => address[]) public categoryFarms;    // 类别到农场的映射
     mapping(address => address) public farmToCategory;     // 农场到类别的映射
-    mapping(address => bool) public blacklistedFarms;      // 黑名单农场
+    mapping(address => bool) public blacklistedFarms;      // 黑名单农�?
     address public platformTreasury;                       // 平台国库地址
-    uint256 public platformFeePercent;                     // 平台费用百分比 (100 = 1%)
+    uint256 public platformFeePercent;                     // 平台费用百分�?(100 = 1%)
     
     // Minimum stake amount
     uint256 public minimumStakeAmount;
@@ -61,7 +61,6 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
     event SwapRouterCreated(address indexed swapRouter);
     event SwapRouterImplementationUpdated(address oldImplementation, address newImplementation);
     event SwapRouterUpgraded(address indexed proxy, address indexed implementation);
-    event Upgraded(address indexed implementation);
     event BatchFarmsCreated(address[] farms, address indexed category);
     event FarmCategoryCreated(address indexed category, string name);
     event FarmUpgraded(address indexed farm, address indexed implementation);
@@ -145,7 +144,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
     /// @param _category Category for the farms
     /// @return farmAddresses Array of created farm addresses
     function batchCreateFarms(
-        IERC20Upgradeable[] calldata _rewardTokens,
+        IERC20[] calldata _rewardTokens,
         uint256[] calldata _rewardRates,
         uint256[] calldata _startTimes,
         address _category
@@ -168,7 +167,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
             address farmAddress = _createFarm(_rewardTokens[i], _rewardRates[i], _startTimes[i]);
             farmAddresses[i] = farmAddress;
             
-            // 添加到类别映射
+            // 添加到类别映�?
             categoryFarms[_category].push(farmAddress);
             farmToCategory[farmAddress] = _category;
             
@@ -194,7 +193,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
     /// @param _startTime Start time
     /// @return farm Address of the created farm
     function _createFarm(
-        IERC20Upgradeable _rewardToken,
+        IERC20 _rewardToken,
         uint256 _rewardPerSecond,
         uint256 _startTime
     ) internal returns (address farm) {
@@ -244,7 +243,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
         require(isFarmFromFactory[_farm], "Not a farm from this factory");
         require(!blacklistedFarms[_farm], "Farm is blacklisted");
         
-        // 调用Farm的升级函数
+        // 调用Farm的升级函�?
         FarmUpgradeable(_farm).upgradeTo(farmImplementation);
         
         emit FarmUpgraded(_farm, farmImplementation);
@@ -264,7 +263,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
                 isFarmFromFactory[farm] && 
                 !blacklistedFarms[farm]
             ) {
-                // 调用Farm的升级函数
+                // 调用Farm的升级函�?
                 FarmUpgradeable(farm).upgradeTo(farmImplementation);
                 emit FarmUpgraded(farm, farmImplementation);
             }
@@ -317,25 +316,25 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
     /// @notice Gets platform-wide statistics
     /// @return totalFarms Total farm count
     /// @return totalTVL Total value locked across all farms
-    /// @return totalUsers Total unique users across all farms (may count duplicates)
+    /// @return userCount Total unique users across all farms (may count duplicates)
     function getPlatformStats() external view returns (
         uint256 totalFarms,
         uint256 totalTVL,
-        uint256 totalUsers
+        uint256 userCount
     ) {
         totalFarms = allFarms.length;
         totalTVL = 0;
-        totalUsers = 0;
+        userCount = 0;
         
         for (uint256 i = 0; i < allFarms.length; i++) {
             if (!blacklistedFarms[allFarms[i]]) {
                 FarmInfo storage info = farmInfo[allFarms[i]];
                 totalTVL += info.tvl;
-                totalUsers += info.userCount;
+                userCount += info.userCount;
             }
         }
         
-        return (totalFarms, totalTVL, totalUsers);
+        return (totalFarms, totalTVL, userCount);
     }
     
     /// @notice Function that allows the contract to be upgraded

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { ethers } from 'ethers';
-import { PoolInfo, UserInfo, TokenInfo } from '../types';
+import { PoolInfo, UserInfo, TokenInfo, SwapPair, SwapInfo } from '../types';
 
 interface FarmState {
   // UI States
@@ -20,6 +20,7 @@ interface FarmState {
   // Farm Contract States
   factoryAddress: string | null;
   currentFarmAddress: string | null;
+  swapRouterAddress: string | null;
   farms: string[];
   pools: PoolInfo[];
   userStakeInfo: Record<number, UserInfo>;
@@ -29,6 +30,7 @@ interface FarmState {
   // Actions
   setFactoryAddress: (address: string) => void;
   setCurrentFarmAddress: (address: string) => void;
+  setSwapRouterAddress: (address: string) => void;
   setFarms: (farms: string[]) => void;
   setPools: (pools: PoolInfo[]) => void;
   updatePool: (pool: PoolInfo) => void;
@@ -41,6 +43,14 @@ interface FarmState {
   tokens: TokenInfo[];
   setTokens: (tokens: TokenInfo[]) => void;
   updateTokenBalance: (address: string, balance: string) => void;
+  
+  // Swap States
+  swapPairs: SwapPair[];
+  swapInfo: SwapInfo | null;
+  setSwapPairs: (pairs: SwapPair[]) => void;
+  addSwapPair: (pair: SwapPair) => void;
+  updateSwapPair: (tokenA: string, tokenB: string, updates: Partial<SwapPair>) => void;
+  setSwapInfo: (info: SwapInfo) => void;
 }
 
 export const useFarmStore = create<FarmState>((set) => ({
@@ -61,6 +71,7 @@ export const useFarmStore = create<FarmState>((set) => ({
   // Farm Contract States
   factoryAddress: process.env.REACT_APP_FACTORY_ADDRESS || null,
   currentFarmAddress: null,
+  swapRouterAddress: null,
   farms: [],
   pools: [],
   userStakeInfo: {},
@@ -70,6 +81,7 @@ export const useFarmStore = create<FarmState>((set) => ({
   // Actions
   setFactoryAddress: (address: string) => set({ factoryAddress: address }),
   setCurrentFarmAddress: (address: string) => set({ currentFarmAddress: address }),
+  setSwapRouterAddress: (address: string) => set({ swapRouterAddress: address }),
   setFarms: (farms: string[]) => set({ farms }),
   setPools: (pools: PoolInfo[]) => set({ pools }),
   updatePool: (pool: PoolInfo) => set((state) => ({ 
@@ -98,4 +110,21 @@ export const useFarmStore = create<FarmState>((set) => ({
         : token
     )
   })),
+  
+  // Swap States
+  swapPairs: [],
+  swapInfo: null,
+  setSwapPairs: (pairs: SwapPair[]) => set({ swapPairs: pairs }),
+  addSwapPair: (pair: SwapPair) => set((state) => ({ 
+    swapPairs: [...state.swapPairs, pair] 
+  })),
+  updateSwapPair: (tokenA: string, tokenB: string, updates: Partial<SwapPair>) => set((state) => ({
+    swapPairs: state.swapPairs.map(pair => 
+      (pair.tokenA.toLowerCase() === tokenA.toLowerCase() && pair.tokenB.toLowerCase() === tokenB.toLowerCase()) ||
+      (pair.tokenA.toLowerCase() === tokenB.toLowerCase() && pair.tokenB.toLowerCase() === tokenA.toLowerCase())
+        ? { ...pair, ...updates }
+        : pair
+    )
+  })),
+  setSwapInfo: (info: SwapInfo) => set({ swapInfo: info }),
 })); 

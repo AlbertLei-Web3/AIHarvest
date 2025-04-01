@@ -1,5 +1,5 @@
-require("@nomicfoundation/hardhat-toolbox");
-require('@openzeppelin/hardhat-upgrades');
+require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-ethers");
 require('dotenv').config();
 
 // Load private key from environment variables
@@ -15,21 +15,21 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || '';
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.26",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200
+    compilers: [
+      {
+        version: "0.8.19",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
       }
-    }
+    ]
   },
   networks: {
     hardhat: {
-      chainId: 31337,
-      forking: process.env.FORK_ENABLED === "true" ? {
-        url: MAINNET_RPC_URL,
-        blockNumber: process.env.FORK_BLOCK ? parseInt(process.env.FORK_BLOCK) : undefined
-      } : undefined,
+      chainId: 31337
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -59,11 +59,5 @@ module.exports = {
   },
   mocha: {
     timeout: 40000
-  },
-  gasReporter: {
-    enabled: process.env.REPORT_GAS === "true",
-    currency: "USD",
-    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
-    gasPrice: 50
   }
 }; 
