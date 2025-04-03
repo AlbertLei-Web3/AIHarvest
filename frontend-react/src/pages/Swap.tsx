@@ -12,31 +12,34 @@ interface SwapFormProps {
 }
 
 const Swap: React.FC = () => {
-  const { isConnected, account, tokens, swapRouterAddress, isLoading } = useFarmStore();
-  const { swap, getSwapOutputAmount, getTokenInfo, getSwapInfo } = useContracts();
+  const { isConnected, account, tokens, isLoading } = useFarmStore();
+  const { 
+    simpleSwap, 
+    simpleSwapRouterContract,
+    getSimpleSwapOutputAmount, 
+    getTokenInfo, 
+    getSimpleSwapInfo 
+  } = useContracts();
   
-  // Mock token list - would be fetched from a contract or API in a real implementation
+  // Use actual deployed token addresses from environment variables
+  const AIH_TOKEN_ADDRESS = process.env.REACT_APP_AIH_TOKEN_ADDRESS || '0xFcB512f45172aa1e331D926321eaA1C52D7dce8E';
+  const USDC_TOKEN_ADDRESS = process.env.REACT_APP_USDC_TOKEN_ADDRESS || '0xB35B48631b69478f28E4365CC1794E378Ad0FA02';
+  
+  // Initial token list with actual deployed tokens
   const [availableTokens, setAvailableTokens] = useState<TokenInfo[]>([
     { 
-      address: '0x1111111111111111111111111111111111111111', 
-      name: 'Ethereum', 
-      symbol: 'ETH', 
+      address: AIH_TOKEN_ADDRESS, 
+      name: 'AI Harvest Token', 
+      symbol: 'AIH', 
       decimals: 18, 
-      balance: '2.5' 
+      balance: '0' 
     },
     { 
-      address: '0x2222222222222222222222222222222222222222', 
-      name: 'AI Token', 
-      symbol: 'AI', 
+      address: USDC_TOKEN_ADDRESS, 
+      name: 'USD Coin', 
+      symbol: 'USDC', 
       decimals: 18, 
-      balance: '10000' 
-    },
-    { 
-      address: '0x3333333333333333333333333333333333333333', 
-      name: 'Tether USD', 
-      symbol: 'USDT', 
-      decimals: 6, 
-      balance: '500' 
+      balance: '0' 
     }
   ]);
   
@@ -48,40 +51,97 @@ const Swap: React.FC = () => {
   const [slippage, setSlippage] = useState<number>(0.5); // 0.5% default slippage
   const [lpFee, setLpFee] = useState<string>('0.25'); // 0.25% default LP fee
   const [protocolFee, setProtocolFee] = useState<string>('0.05'); // 0.05% default protocol fee
+  const [exchangeRates, setExchangeRates] = useState<Map<string, string>>(new Map());
+  const [isWhitelistEnabled, setIsWhitelistEnabled] = useState<boolean>(false);
+  const [whitelistedTokens, setWhitelistedTokens] = useState<Map<string, boolean>>(new Map());
   
+  // Load token balances when connected
   useEffect(() => {
-    if (tokens.length > 0) {
-      setAvailableTokens(tokens);
-      setFromToken(tokens[0]);
-      setToToken(tokens[1]);
-    }
-  }, [tokens]);
+    const loadTokensInfo = async () => {
+      if (isConnected) {
+        const updatedTokens = [...availableTokens];
+        
+        for (let i = 0; i < updatedTokens.length; i++) {
+          const tokenInfo = await getTokenInfo(updatedTokens[i].address);
+          if (tokenInfo) {
+            updatedTokens[i] = {
+              ...updatedTokens[i],
+              name: tokenInfo.name,
+              symbol: tokenInfo.symbol,
+              decimals: tokenInfo.decimals,
+              balance: tokenInfo.balance
+            };
+          }
+        }
+        
+        setAvailableTokens(updatedTokens);
+        if (updatedTokens.length > 0) {
+          setFromToken(updatedTokens[0]);
+          setToToken(updatedTokens[1]);
+        }
+      }
+    };
+    
+    loadTokensInfo();
+  }, [isConnected, getTokenInfo]);
   
   // Fetch swap info when router address changes
   useEffect(() => {
     const fetchSwapInfo = async () => {
-      if (swapRouterAddress) {
-        const info = await getSwapInfo();
+      if (simpleSwapRouterContract) {
+        const info = await getSimpleSwapInfo();
         if (info) {
-          setLpFee((parseFloat(info.lpFee) / 10).toString());
-          setProtocolFee((parseFloat(info.protocolFee) / 10).toString());
+          setLpFee((parseFloat(info.lpFee) / 100).toString());
+          setProtocolFee((parseFloat(info.protocolFee) / 100).toString());
+        }
+        
+        // Get whitelist status
+        try {
+          const status = await simpleSwapRouterContract.whitelistEnabled();
+          setIsWhitelistEnabled(status);
+          
+          // Check if tokens are whitelisted
+          const newWhitelistedTokens = new Map<string, boolean>();
+          for (const token of availableTokens) {
+            const isWhitelisted = await simpleSwapRouterContract.whitelistedTokens(token.address);
+            newWhitelistedTokens.set(token.address, isWhitelisted);
+          }
+          setWhitelistedTokens(newWhitelistedTokens);
+          
+          // Get exchange rates
+          const newExchangeRates = new Map<string, string>();
+          for (let i = 0; i < availableTokens.length; i++) {
+            for (let j = 0; j < availableTokens.length; j++) {
+              if (i !== j) {
+                const rate = await simpleSwapRouterContract.exchangeRates(
+                  availableTokens[i].address, 
+                  availableTokens[j].address
+                );
+                const key = `${availableTokens[i].address}-${availableTokens[j].address}`;
+                newExchangeRates.set(key, ethers.utils.formatEther(rate));
+              }
+            }
+          }
+          setExchangeRates(newExchangeRates);
+        } catch (err) {
+          console.error('Error fetching swap configuration:', err);
         }
       }
     };
     
     fetchSwapInfo();
-  }, [swapRouterAddress, getSwapInfo]);
+  }, [simpleSwapRouterContract, getSimpleSwapInfo, availableTokens]);
   
   // Get output amount when input changes
   useEffect(() => {
     const getOutput = async () => {
-      if (!fromAmount || parseFloat(fromAmount) <= 0 || !swapRouterAddress || !fromToken || !toToken) {
+      if (!fromAmount || parseFloat(fromAmount) <= 0 || !simpleSwapRouterContract || !fromToken || !toToken) {
         setToAmount('');
         return;
       }
       
       try {
-        const outputAmount = await getSwapOutputAmount(
+        const outputAmount = await getSimpleSwapOutputAmount(
           fromToken.address,
           toToken.address,
           fromAmount
@@ -101,7 +161,7 @@ const Swap: React.FC = () => {
     };
     
     getOutput();
-  }, [fromAmount, fromToken, toToken, swapRouterAddress, getSwapOutputAmount]);
+  }, [fromAmount, fromToken, toToken, simpleSwapRouterContract, getSimpleSwapOutputAmount]);
   
   const handleFromTokenChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const tokenAddress = event.target.value;
@@ -154,7 +214,7 @@ const Swap: React.FC = () => {
   };
 
   const handleSwap = async () => {
-    if (!isConnected || !fromAmount || parseFloat(fromAmount) <= 0 || !swapRouterAddress) {
+    if (!isConnected || !fromAmount || parseFloat(fromAmount) <= 0 || !simpleSwapRouterContract) {
       return;
     }
     
@@ -171,8 +231,19 @@ const Swap: React.FC = () => {
         return;
       }
       
+      // Check whitelist if enabled
+      if (isWhitelistEnabled) {
+        const isFromTokenWhitelisted = whitelistedTokens.get(fromToken.address);
+        const isToTokenWhitelisted = whitelistedTokens.get(toToken.address);
+        
+        if (!isFromTokenWhitelisted || !isToTokenWhitelisted) {
+          useFarmStore.getState().setError('One or both tokens are not whitelisted');
+          return;
+        }
+      }
+      
       // Perform the swap
-      const tx = await swap(fromToken.address, toToken.address, fromAmount);
+      const tx = await simpleSwap(fromToken.address, toToken.address, fromAmount);
       
       if (tx) {
         // Wait for transaction to be mined
@@ -191,10 +262,28 @@ const Swap: React.FC = () => {
         
         if (updatedFromToken) {
           useFarmStore.getState().updateTokenBalance(fromToken.address, updatedFromToken.balance);
+          
+          // Update local state
+          const updatedTokens = availableTokens.map(token => 
+            token.address === fromToken.address 
+              ? { ...token, balance: updatedFromToken.balance } 
+              : token
+          );
+          setAvailableTokens(updatedTokens);
+          setFromToken(updatedFromToken);
         }
         
         if (updatedToToken) {
           useFarmStore.getState().updateTokenBalance(toToken.address, updatedToToken.balance);
+          
+          // Update local state
+          const updatedTokens = availableTokens.map(token => 
+            token.address === toToken.address 
+              ? { ...token, balance: updatedToToken.balance } 
+              : token
+          );
+          setAvailableTokens(updatedTokens);
+          setToToken(updatedToToken);
         }
       }
     } catch (err: any) {
@@ -217,10 +306,15 @@ const Swap: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8 max-w-md">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-4">Swap Tokens</h1>
+        <h1 className="text-3xl font-bold mb-4">SimpleSwap Exchange</h1>
         <p className="text-gray-600">
-          Exchange tokens at the best rates with low fees ({lpFee}% LP, {protocolFee}% protocol)
+          Swap AIH ⇄ USDC with low fees ({lpFee}% LP, {protocolFee}% protocol)
         </p>
+        {isWhitelistEnabled && (
+          <div className="mt-2 text-sm text-blue-600">
+            Whitelist protection enabled - only whitelisted tokens can be swapped
+          </div>
+        )}
       </div>
       
       {!isConnected ? (
@@ -268,6 +362,10 @@ const Swap: React.FC = () => {
                 ))}
               </select>
             </div>
+            
+            {isWhitelistEnabled && !whitelistedTokens.get(fromToken.address) && (
+              <div className="mt-1 text-red-500 text-xs">This token is not whitelisted</div>
+            )}
           </div>
           
           {/* Swap Button */}
@@ -312,13 +410,17 @@ const Swap: React.FC = () => {
                 ))}
               </select>
             </div>
+            
+            {isWhitelistEnabled && !whitelistedTokens.get(toToken.address) && (
+              <div className="mt-1 text-red-500 text-xs">This token is not whitelisted</div>
+            )}
           </div>
           
           {/* Price and slippage info */}
           {swapRate && (
             <div className="bg-gray-50 rounded-md p-3 mb-6">
               <div className="flex justify-between text-sm text-gray-600">
-                <span>Price</span>
+                <span>Exchange Rate</span>
                 <span>{swapRate}</span>
               </div>
               <div className="flex justify-between text-sm text-gray-600 mt-2">
@@ -336,7 +438,14 @@ const Swap: React.FC = () => {
           <button
             className="btn-primary w-full py-3 rounded-md"
             onClick={handleSwap}
-            disabled={!fromAmount || parseFloat(fromAmount) <= 0 || !toAmount || parseFloat(toAmount) <= 0 || isLoading}
+            disabled={
+              !fromAmount || 
+              parseFloat(fromAmount) <= 0 || 
+              !toAmount || 
+              parseFloat(toAmount) <= 0 || 
+              isLoading ||
+              (isWhitelistEnabled && (!whitelistedTokens.get(fromToken.address) || !whitelistedTokens.get(toToken.address)))
+            }
           >
             {isLoading ? 'Swapping...' : 'Swap'}
           </button>

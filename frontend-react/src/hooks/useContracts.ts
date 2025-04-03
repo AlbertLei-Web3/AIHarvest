@@ -6,6 +6,7 @@ import {
   FACTORY_ABI, 
   ERC20_ABI,
   SWAP_ROUTER_ABI,
+  SIMPLE_SWAP_ROUTER_ABI,
   PoolInfo,
   UserInfo,
   TokenInfo,
@@ -16,11 +17,15 @@ import { useFarmStore } from '../store';
 
 // Get environment variables or use defaults
 const FACTORY_ADDRESS = process.env.REACT_APP_FACTORY_ADDRESS || '0xE86cD948176C121C8AD25482F6Af3B1BC3F527Df';
+const SIMPLE_SWAP_ROUTER_ADDRESS = process.env.REACT_APP_SIMPLE_SWAP_ROUTER_ADDRESS || '0x5Dcde9e56b34e719a72CF060802D276dcb580730';
+const AIH_TOKEN_ADDRESS = process.env.REACT_APP_AIH_TOKEN_ADDRESS || '0xFcB512f45172aa1e331D926321eaA1C52D7dce8E';
+const USDC_TOKEN_ADDRESS = process.env.REACT_APP_USDC_TOKEN_ADDRESS || '0xB35B48631b69478f28E4365CC1794E378Ad0FA02';
 
 interface UseContractsReturn {
   factoryContract: ethers.Contract | null;
   farmContract: ethers.Contract | null;
   swapRouterContract: ethers.Contract | null;
+  simpleSwapRouterContract: ethers.Contract | null;
   loadFarmContract: (farmAddress: string) => void;
   loadSwapRouterContract: (routerAddress: string) => void;
   getTokenContract: (tokenAddress: string) => ethers.Contract | null;
@@ -47,34 +52,43 @@ interface UseContractsReturn {
   addLiquidity: (tokenA: string, tokenB: string, amountA: string, amountB: string) => Promise<ethers.ContractTransaction | null>;
   setExchangeRate: (tokenA: string, tokenB: string, rate: string) => Promise<ethers.ContractTransaction | null>;
   getSwapInfo: () => Promise<SwapInfo | null>;
+  simpleSwap: (fromToken: string, toToken: string, amount: string) => Promise<ethers.ContractTransaction | null>;
+  addSimpleLiquidity: (tokenA: string, tokenB: string, amountA: string, amountB: string) => Promise<ethers.ContractTransaction | null>;
+  getSimpleSwapInfo: () => Promise<SwapInfo | null>;
+  getSimpleSwapOutputAmount: (fromToken: string, toToken: string, amount: string) => Promise<string>;
   isLoading: boolean;
   error: string | null;
 }
 
 const useContracts = (): UseContractsReturn => {
-  const { provider, signer, isConnected } = useWeb3();
+  const { provider, signer, account, chainId, isConnected } = useWeb3();
   const [factoryContract, setFactoryContract] = useState<ethers.Contract | null>(null);
   const [farmContract, setFarmContract] = useState<ethers.Contract | null>(null);
   const [swapRouterContract, setSwapRouterContract] = useState<ethers.Contract | null>(null);
+  const [simpleSwapRouterContract, setSimpleSwapRouterContract] = useState<ethers.Contract | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize factory contract
+  // Initialize contracts
   useEffect(() => {
-    if (provider && FACTORY_ADDRESS) {
+    if (isConnected && signer) {
       try {
-        const contract = new ethers.Contract(
-          FACTORY_ADDRESS,
-          FACTORY_ABI,
-          provider
+        const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
+        setFactoryContract(factory);
+        
+        // Initialize SimpleSwapRouter
+        const simpleSwapRouter = new ethers.Contract(
+          SIMPLE_SWAP_ROUTER_ADDRESS,
+          SIMPLE_SWAP_ROUTER_ABI,
+          signer
         );
-        setFactoryContract(contract);
-      } catch (err: any) {
-        console.error('Error initializing factory contract:', err);
-        setError('Failed to initialize factory contract');
+        setSimpleSwapRouterContract(simpleSwapRouter);
+      } catch (error) {
+        console.error('Error initializing contracts:', error);
+        setError('Failed to initialize contracts');
       }
     }
-  }, [provider]);
+  }, [isConnected, signer]);
 
   // Load farm contract
   const loadFarmContract = useCallback((farmAddress: string) => {
@@ -593,10 +607,174 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
+  // SimpleSwap
+  const simpleSwap = async (
+    fromToken: string,
+    toToken: string,
+    amount: string
+  ): Promise<ethers.ContractTransaction | null> => {
+    if (!simpleSwapRouterContract || !signer) return null;
+    
+    try {
+      setIsLoading(true);
+      
+      const tokenContract = getTokenContract(fromToken);
+      if (!tokenContract) return null;
+      
+      const decimals = await tokenContract.decimals();
+      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      
+      // Check and set allowance if needed
+      const allowance = await tokenContract.allowance(
+        account,
+        SIMPLE_SWAP_ROUTER_ADDRESS
+      );
+      
+      if (allowance.lt(parsedAmount)) {
+        const approveTx = await tokenContract.approve(
+          SIMPLE_SWAP_ROUTER_ADDRESS,
+          ethers.constants.MaxUint256
+        );
+        await approveTx.wait();
+      }
+      
+      const tx = await simpleSwapRouterContract.swap(fromToken, toToken, parsedAmount);
+      return tx;
+    } catch (err) {
+      console.error('Error performing SimpleSwapRouter swap:', err);
+      setError('Failed to swap tokens');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Get SimpleSwapRouter info
+  const getSimpleSwapInfo = async (): Promise<SwapInfo | null> => {
+    if (!simpleSwapRouterContract) return null;
+    
+    try {
+      const [lpFee, protocolFee, treasury] = await Promise.all([
+        simpleSwapRouterContract.lpFee(),
+        simpleSwapRouterContract.protocolFee(),
+        simpleSwapRouterContract.treasury()
+      ]);
+      
+      return {
+        lpFee: lpFee.toString(),
+        protocolFee: protocolFee.toString(),
+        treasury
+      };
+    } catch (err) {
+      console.error('Error getting SimpleSwapRouter info:', err);
+      return null;
+    }
+  };
+  
+  // Get SimpleSwapRouter output amount
+  const getSimpleSwapOutputAmount = async (
+    fromToken: string,
+    toToken: string,
+    amount: string
+  ): Promise<string> => {
+    if (!simpleSwapRouterContract) return '0';
+    
+    try {
+      const tokenContract = getTokenContract(fromToken);
+      if (!tokenContract) return '0';
+      
+      const decimals = await tokenContract.decimals();
+      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      
+      const outputAmount = await simpleSwapRouterContract.getOutputAmount(
+        fromToken,
+        toToken,
+        parsedAmount
+      );
+      
+      const outputTokenContract = getTokenContract(toToken);
+      if (!outputTokenContract) return '0';
+      
+      const outputDecimals = await outputTokenContract.decimals();
+      return ethers.utils.formatUnits(outputAmount, outputDecimals);
+    } catch (err) {
+      console.error('Error getting SimpleSwapRouter output amount:', err);
+      return '0';
+    }
+  };
+  
+  // Add liquidity to SimpleSwapRouter
+  const addSimpleLiquidity = async (
+    tokenA: string,
+    tokenB: string,
+    amountA: string,
+    amountB: string
+  ): Promise<ethers.ContractTransaction | null> => {
+    if (!simpleSwapRouterContract || !signer) return null;
+    
+    try {
+      setIsLoading(true);
+      
+      const tokenAContract = getTokenContract(tokenA);
+      const tokenBContract = getTokenContract(tokenB);
+      
+      if (!tokenAContract || !tokenBContract) return null;
+      
+      const decimalsA = await tokenAContract.decimals();
+      const decimalsB = await tokenBContract.decimals();
+      
+      const parsedAmountA = ethers.utils.parseUnits(amountA, decimalsA);
+      const parsedAmountB = ethers.utils.parseUnits(amountB, decimalsB);
+      
+      // Check and set allowances if needed
+      const allowanceA = await tokenAContract.allowance(
+        account,
+        SIMPLE_SWAP_ROUTER_ADDRESS
+      );
+      
+      const allowanceB = await tokenBContract.allowance(
+        account,
+        SIMPLE_SWAP_ROUTER_ADDRESS
+      );
+      
+      if (allowanceA.lt(parsedAmountA)) {
+        const approveTxA = await tokenAContract.approve(
+          SIMPLE_SWAP_ROUTER_ADDRESS,
+          ethers.constants.MaxUint256
+        );
+        await approveTxA.wait();
+      }
+      
+      if (allowanceB.lt(parsedAmountB)) {
+        const approveTxB = await tokenBContract.approve(
+          SIMPLE_SWAP_ROUTER_ADDRESS,
+          ethers.constants.MaxUint256
+        );
+        await approveTxB.wait();
+      }
+      
+      const tx = await simpleSwapRouterContract.addLiquidity(
+        tokenA,
+        tokenB,
+        parsedAmountA,
+        parsedAmountB
+      );
+      
+      return tx;
+    } catch (err) {
+      console.error('Error adding liquidity to SimpleSwapRouter:', err);
+      setError('Failed to add liquidity');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     factoryContract,
     farmContract,
     swapRouterContract,
+    simpleSwapRouterContract,
     loadFarmContract,
     loadSwapRouterContract,
     getTokenContract,
@@ -622,6 +800,10 @@ const useContracts = (): UseContractsReturn => {
     addLiquidity,
     setExchangeRate,
     getSwapInfo,
+    simpleSwap,
+    addSimpleLiquidity,
+    getSimpleSwapInfo,
+    getSimpleSwapOutputAmount,
     isLoading,
     error,
   };

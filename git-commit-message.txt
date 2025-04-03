@@ -1,0 +1,17 @@
+ feat(frontend): integrate SimpleSwapRouter contract
+
+This commit integrates the new SimpleSwapRouter contract with the frontend application:
+
+- Add SIMPLE_SWAP_ROUTER_ABI to types/index.ts with all contract functions 
+- Update .env with SimpleSwapRouter and token addresses
+- Enhance useContracts.ts with SimpleSwapRouter interaction methods:
+  - getSimpleSwapInfo
+  - getSimpleSwapOutputAmount
+  - simpleSwap
+  - addSimpleLiquidity
+- Modify Swap.tsx to use SimpleSwapRouter functionality:
+  - Display whitelist status and indicators
+  - Use actual deployed token addresses
+  - Improve fee and exchange rate display
+  - Add automatic token balance updates
+
