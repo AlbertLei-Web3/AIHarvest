@@ -1,5 +1,8 @@
+// hardhat.config.js
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-ethers");
+require("@nomicfoundation/hardhat-verify");
+require('@openzeppelin/hardhat-upgrades');
 require('dotenv').config();
 
 // Load private key from environment variables

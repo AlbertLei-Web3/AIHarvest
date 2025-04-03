@@ -18,12 +18,13 @@ aiharvest/
 │   ├── TestTokenUpgradeable.sol    # 测试代币 (V1)
 │   └── TestTokenUpgradeableV2.sol  # 测试代币升级版 (V2)
 ├── scripts/            # 部署和管理脚本
-│   ├── deploy-and-setup.js         # 全面部署和初始化脚本
-│   ├── deploy-upgradeable-contracts.js # 基本部署脚本
+│   ├── deploy-and-setup.js         # 使用UUPS代理模式的部署脚本
+│   ├── deploy-simple.js            # 简化部署脚本（推荐）
 │   ├── upgrade-contracts.js        # 合约升级脚本
 │   └── generate-contracts-json.js  # 合约信息生成脚本
+├── DEPENDENCY_MANAGEMENT.md  # 依赖管理文档
 ├── abis/              # 合约ABI文件 (由generate-contracts-json.js生成)
-├── contracts.json     # 部署的合约地址和ABI引用 (由generate-contracts-json.js生成)
+├── contracts.json     # 部署的合约地址和ABI引用 (由部署脚本生成)
 └── .env               # 环境变量配置
 ```
 
@@ -70,44 +71,71 @@ npm run compile
 
 有几种部署选项：
 
-### 本地开发网络 (Local Development)
+### 推荐方式：简化部署 (Recommended: Simplified Deployment)
 
-启动本地 Hardhat 节点：
+这种方式避免了OpenZeppelin升级插件的依赖冲突问题，同时保持了合约的可升级性。
 
 ```bash
+# 本地部署
+npm run deploy-simple:local
+
+# Sepolia测试网部署
+npm run deploy-simple:sepolia
+
+# 主网部署
+npm run deploy-simple:mainnet
+```
+
+### 替代方式：代理模式部署 (Alternative: Proxy Pattern Deployment)
+
+如果你需要使用完整的UUPS代理模式，可以使用原始部署脚本（需要确保依赖兼容）：
+
+```bash
+# 启动本地Hardhat节点
 npm run node
-```
 
-在另一个终端窗口，部署合约：
-
-```bash
+# 在另一个终端窗口，部署合约
 npm run deploy:local
-```
 
-### 测试网 (Testnet)
-
-在 Sepolia 测试网上部署：
-
-```bash
+# 或在Sepolia测试网上部署
 npm run deploy:sepolia
 ```
 
+## 依赖管理 (Dependency Management)
+
+本项目解决了一些关键依赖冲突问题：
+- ethers.js版本冲突
+- hardhat插件兼容性问题
+- OpenZeppelin库版本控制
+
+详细信息请参阅 [依赖管理文档](./DEPENDENCY_MANAGEMENT.md)。
+
 ## 合约升级 (Contract Upgrades)
 
-合约升级流程：
+合约升级有两种方式：
+
+### 1. 使用简化部署方式的升级策略
+
+- 为Factory注册新的Farm实现合约
+- 部署新版本合约并迁移状态
+- 参考 `DEPENDENCY_MANAGEMENT.md` 中的升级最佳实践
+
+### 2. 使用UUPS代理的升级流程
 
 1. 在 `upgrade-contracts.js` 中填入已部署合约的地址
 2. 运行升级脚本：
 
 ```bash
-npm run upgrade
+npm run upgrade:local
+# 或
+npm run upgrade:sepolia
 ```
 
 注意：此脚本会将 V1 合约升级到 V2 版本，只有在需要新功能或修复时才应运行。
 
 ## 为前端生成合约信息 (Generating Contract Info for Frontend)
 
-部署合约后，运行：
+部署合约后，文件 `contracts.json` 会自动生成。如需手动生成，运行：
 
 ```bash
 npm run generate-contracts
