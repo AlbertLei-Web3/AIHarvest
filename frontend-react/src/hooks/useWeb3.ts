@@ -1,12 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 
-// Add window ethereum interface
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
+// Remove the conflicting declaration since we already have it in global.d.ts
 
 interface UseWeb3Return {
   provider: ethers.providers.Web3Provider | null;

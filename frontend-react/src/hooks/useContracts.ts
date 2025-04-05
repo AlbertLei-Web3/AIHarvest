@@ -56,6 +56,7 @@ interface UseContractsReturn {
   addSimpleLiquidity: (tokenA: string, tokenB: string, amountA: string, amountB: string) => Promise<ethers.ContractTransaction | null>;
   getSimpleSwapInfo: () => Promise<SwapInfo | null>;
   getSimpleSwapOutputAmount: (fromToken: string, toToken: string, amount: string) => Promise<string>;
+  getTokenBalance: (tokenAddress: string, accountAddress: string) => Promise<ethers.BigNumber>;
   isLoading: boolean;
   error: string | null;
 }
@@ -770,6 +771,28 @@ const useContracts = (): UseContractsReturn => {
     }
   };
 
+  // Get token balance
+  const getTokenBalance = async (
+    tokenAddress: string,
+    accountAddress: string
+  ): Promise<ethers.BigNumber> => {
+    if (!provider) return ethers.BigNumber.from(0);
+    
+    try {
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        ERC20_ABI,
+        provider
+      );
+      
+      const balance = await tokenContract.balanceOf(accountAddress);
+      return balance;
+    } catch (err) {
+      console.error('Error getting token balance:', err);
+      return ethers.BigNumber.from(0);
+    }
+  };
+
   return {
     factoryContract,
     farmContract,
@@ -804,6 +827,7 @@ const useContracts = (): UseContractsReturn => {
     addSimpleLiquidity,
     getSimpleSwapInfo,
     getSimpleSwapOutputAmount,
+    getTokenBalance,
     isLoading,
     error,
   };
