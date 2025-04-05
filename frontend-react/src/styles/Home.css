@@ -170,8 +170,11 @@
 
 /* Stats Section */
 .stats-section {
-  background-color: #f8f9fa;
+  position: relative;
   padding: 60px 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: white;
 }
 
 .stats-grid {
@@ -181,34 +184,46 @@
 }
 
 .stat-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 25px;
   text-align: center;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .stat-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .stat-card h3 {
   font-size: 1.1rem;
-  color: #666;
+  color: rgba(255, 255, 255, 0.8);
   margin-bottom: 10px;
 }
 
 .stat-value {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #0f3460;
+  background: linear-gradient(to right, #e2336b, #fcac46);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* Features Section */
 .features-section {
+  position: relative;
   padding: 80px 0;
+  overflow: hidden;
+  background: #f8f9fa;
+}
+
+.features-section .gradient-background {
+  opacity: 0.9;
 }
 
 .section-title {
@@ -216,26 +231,32 @@
   font-size: 2.2rem;
   font-weight: 700;
   margin-bottom: 50px;
-  color: #0f3460;
+  color: white;
+  position: relative;
 }
 
 .features-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 30px;
+  position: relative;
+  z-index: 1;
 }
 
 .feature-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 30px;
   transition: all 0.3s ease;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .feature-card:hover {
   transform: translateY(-10px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .feature-icon {
@@ -258,18 +279,24 @@
 .feature-card h3 {
   font-size: 1.3rem;
   margin-bottom: 15px;
-  color: #0f3460;
+  color: white;
 }
 
 .feature-card p {
-  color: #666;
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1.6;
 }
 
 /* Trading Pairs Section */
 .trading-pairs-section {
-  background-color: #f8f9fa;
+  position: relative;
   padding: 80px 0;
+  overflow: hidden;
+  color: white;
+}
+
+.trading-pairs-section .container {
+  flex-direction: row-reverse;
 }
 
 .trading-pairs-grid {
@@ -279,16 +306,19 @@
 }
 
 .trading-pair-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 30px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .trading-pair-card:hover {
   transform: translateY(-10px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .token-icons {
@@ -307,7 +337,7 @@
   justify-content: center;
   font-weight: bold;
   margin-right: -15px;
-  border: 3px solid white;
+  border: 3px solid rgba(255, 255, 255, 0.2);
 }
 
 .token-icon:nth-child(2) {
@@ -317,11 +347,11 @@
 .trading-pair-card h3 {
   font-size: 1.5rem;
   margin-bottom: 10px;
-  color: #0f3460;
+  color: white;
 }
 
 .pair-description {
-  color: #666;
+  color: rgba(255, 255, 255, 0.7);
   margin-bottom: 20px;
   line-height: 1.6;
 }
@@ -333,27 +363,35 @@
 
 /* Getting Started Section */
 .getting-started-section {
+  position: relative;
   padding: 80px 0;
+  overflow: hidden;
+  color: white;
 }
 
 .steps-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 30px;
+  position: relative;
+  z-index: 1;
 }
 
 .step-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 30px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   position: relative;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .step-card:hover {
   transform: translateY(-10px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .step-number {
@@ -375,26 +413,32 @@
 .step-card h3 {
   font-size: 1.3rem;
   margin-bottom: 15px;
-  color: #0f3460;
+  color: white;
   margin-top: 10px;
 }
 
 .step-card p {
-  color: #666;
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1.6;
 }
 
 /* CTA Section */
 .cta-section {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  position: relative;
   padding: 80px 0;
   text-align: center;
   color: white;
+  overflow: hidden;
+}
+
+.cta-section .gradient-background {
+  opacity: 0.8;
 }
 
 .cta-section h2 {
   font-size: 2.5rem;
   margin-bottom: 20px;
+  position: relative;
 }
 
 .cta-section p {
@@ -404,12 +448,22 @@
   margin-left: auto;
   margin-right: auto;
   opacity: 0.9;
+  position: relative;
 }
 
 .cta-buttons {
   display: flex;
   justify-content: center;
   gap: 15px;
+  position: relative;
+}
+
+/* Apply gradient background to all main sections */
+.features-section,
+.trading-pairs-section,
+.getting-started-section,
+.cta-section {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 }
 
 /* Responsive Styles */
@@ -435,6 +489,10 @@
   
   .section-title {
     font-size: 1.8rem;
+  }
+  
+  .trading-pairs-section .container {
+    flex-direction: column;
   }
 }
 

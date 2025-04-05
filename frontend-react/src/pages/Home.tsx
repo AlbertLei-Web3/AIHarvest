@@ -93,6 +93,10 @@ const Home: React.FC = () => {
       
       {/* Stats Section */}
       <section className="stats-section">
+        <div className="gradient-background">
+          <div className="wave wave1"></div>
+          <div className="wave wave2"></div>
+        </div>
         <div className="container">
           <div className="stats-grid">
             <div className="stat-card">
@@ -115,8 +119,43 @@ const Home: React.FC = () => {
         </div>
       </section>
       
+      {/* Trading Pairs Section - Moved above features */}
+      <section className="trading-pairs-section">
+        <div className="gradient-background">
+          <div className="wave wave1"></div>
+          <div className="wave wave2"></div>
+        </div>
+        <div className="container">
+          <div className="section-content">
+            <h2 className="section-title">Available Trading Pairs</h2>
+          </div>
+          <div className="trading-pair-card">
+            <div className="token-icons">
+              <div className="token-icon">AIH</div>
+              <div className="token-icon">USDC</div>
+            </div>
+            <h3>AIH-USDC</h3>
+            <p className="pair-description">
+              Trade between AI Harvest Token and USDC with competitive rates
+            </p>
+            <div className="pair-buttons">
+              <Link to="/swap" className="button small-button primary-button">
+                Swap
+              </Link>
+              <Link to="/swap" className="button small-button secondary-button">
+                Add Liquidity
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+      
       {/* Features Section */}
       <section className="features-section">
+        <div className="gradient-background">
+          <div className="wave wave1"></div>
+          <div className="wave wave2"></div>
+        </div>
         <div className="container">
           <h2 className="section-title">SimpleSwapRouter Features</h2>
           
@@ -171,36 +210,12 @@ const Home: React.FC = () => {
         </div>
       </section>
       
-      {/* Trading Pairs Section */}
-      <section className="trading-pairs-section">
-        <div className="container">
-          <h2 className="section-title">Available Trading Pairs</h2>
-          
-          <div className="trading-pairs-grid">
-            <div className="trading-pair-card">
-              <div className="token-icons">
-                <div className="token-icon">AIH</div>
-                <div className="token-icon">USDC</div>
-              </div>
-              <h3>AIH-USDC</h3>
-              <p className="pair-description">
-                Trade between AI Harvest Token and USDC with competitive rates
-              </p>
-              <div className="pair-buttons">
-                <Link to="/swap" className="button small-button">
-                  Swap
-                </Link>
-                <Link to="/swap" className="button small-button secondary">
-                  Add Liquidity
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      
       {/* Getting Started Guide */}
       <section className="getting-started-section">
+        <div className="gradient-background">
+          <div className="wave wave1"></div>
+          <div className="wave wave2"></div>
+        </div>
         <div className="container">
           <h2 className="section-title">Getting Started</h2>
           
@@ -228,6 +243,10 @@ const Home: React.FC = () => {
       
       {/* CTA Section */}
       <section className="cta-section">
+        <div className="gradient-background">
+          <div className="wave wave1"></div>
+          <div className="wave wave2"></div>
+        </div>
         <div className="container">
           <h2>Ready to Start Swapping?</h2>
           <p>Experience the simplicity and efficiency of our SimpleSwapRouter.</p>

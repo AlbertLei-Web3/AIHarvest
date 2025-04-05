@@ -42,34 +42,56 @@
     <text x="0" y="10" font-family="Arial, sans-serif" font-size="30" font-weight="bold" text-anchor="middle" fill="white">USDC</text>
   </g>
   
-  <!-- Swap Arrows -->
+  <!-- Enhanced Swap Animation (Replacing the X) -->
   <g transform="translate(250, 200)">
-    <path d="M-40,-40 L40,40" stroke="white" stroke-width="6" stroke-linecap="round"></path>
-    <path d="M-40,40 L40,-40" stroke="white" stroke-width="6" stroke-linecap="round"></path>
+    <!-- Curved Arrows -->
+    <path d="M-45,-45 C-20,-20 -20,20 -45,45" stroke="white" stroke-width="6" stroke-linecap="round" fill="none">
+      <animate attributeName="stroke-dasharray" from="0,200" to="200,0" dur="2s" repeatCount="indefinite" />
+    </path>
+    <path d="M45,-45 C20,-20 20,20 45,45" stroke="white" stroke-width="6" stroke-linecap="round" fill="none">
+      <animate attributeName="stroke-dasharray" from="0,200" to="200,0" dur="2s" repeatCount="indefinite" />
+    </path>
     
-    <!-- Arrow Heads -->
-    <polygon points="45,-40 30,-30 40,-50" fill="white"></polygon>
-    <polygon points="45,40 30,50 40,30" fill="white"></polygon>
+    <!-- Arrow Heads with Animation -->
+    <polygon points="-45,45 -35,35 -55,35" fill="white" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />
+    </polygon>
+    <polygon points="45,-45 35,-35 55,-35" fill="white" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />
+    </polygon>
   </g>
   
   <!-- Animated Particles -->
-  <circle cx="180" cy="160" r="3" fill="white" opacity="0.8">
-    <animate attributeName="cx" from="180" to="320" dur="2s" repeatCount="indefinite" />
-    <animate attributeName="cy" from="160" to="240" dur="2s" repeatCount="indefinite" />
+  <circle cx="180" cy="160" r="4" fill="white" opacity="0.8">
+    <animate attributeName="cx" from="140" to="360" dur="2s" repeatCount="indefinite" />
+    <animate attributeName="cy" from="120" to="280" dur="2s" repeatCount="indefinite" />
+    <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
   </circle>
   
-  <circle cx="320" cy="240" r="3" fill="white" opacity="0.8">
-    <animate attributeName="cx" from="320" to="180" dur="2s" repeatCount="indefinite" />
-    <animate attributeName="cy" from="240" to="160" dur="2s" repeatCount="indefinite" />
+  <circle cx="320" cy="240" r="4" fill="white" opacity="0.8">
+    <animate attributeName="cx" from="360" to="140" dur="2s" repeatCount="indefinite" />
+    <animate attributeName="cy" from="280" to="120" dur="2s" repeatCount="indefinite" />
+    <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
   </circle>
   
-  <circle cx="200" cy="180" r="2" fill="white" opacity="0.6">
-    <animate attributeName="cx" from="200" to="300" dur="1.5s" repeatCount="indefinite" />
-    <animate attributeName="cy" from="180" to="220" dur="1.5s" repeatCount="indefinite" />
+  <circle cx="200" cy="180" r="3" fill="white" opacity="0.6">
+    <animate attributeName="cx" from="140" to="360" dur="1.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" from="120" to="280" dur="1.5s" repeatCount="indefinite" />
   </circle>
   
-  <circle cx="300" cy="220" r="2" fill="white" opacity="0.6">
-    <animate attributeName="cx" from="300" to="200" dur="1.5s" repeatCount="indefinite" />
-    <animate attributeName="cy" from="220" to="180" dur="1.5s" repeatCount="indefinite" />
+  <circle cx="300" cy="220" r="3" fill="white" opacity="0.6">
+    <animate attributeName="cx" from="360" to="140" dur="1.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" from="280" to="120" dur="1.5s" repeatCount="indefinite" />
+  </circle>
+  
+  <!-- Additional Particles -->
+  <circle cx="220" cy="190" r="2" fill="white" opacity="0.5">
+    <animate attributeName="cx" from="140" to="360" dur="2.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" from="120" to="280" dur="2.5s" repeatCount="indefinite" />
+  </circle>
+  
+  <circle cx="280" cy="210" r="2" fill="white" opacity="0.5">
+    <animate attributeName="cx" from="360" to="140" dur="2.5s" repeatCount="indefinite" />
+    <animate attributeName="cy" from="280" to="120" dur="2.5s" repeatCount="indefinite" />
   </circle>
 </svg> 
