@@ -3,8 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import useAccount from '../../hooks/useAccount';
 import './Header.css';
 
-// 更新于2023-10-22 10:45:15 - 修复导航链接在激活状态下的可见性问题和钱包按钮位置
-// Updated on 2023-10-22 10:45:15 - Fixed navigation link visibility in active state and wallet button positioning
+// 更新于2023-10-22 16:15:30 - 重新设计标题栏，将标题和导航放在左侧，钱包按钮放在右侧
+// Updated on 2023-10-22 16:15:30 - Redesigned header with title and navigation on the left, wallet button on the right
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -22,8 +22,8 @@ const Header: React.FC = () => {
 
   return (
     <header className="site-header">
-      <div className="container">
-        <div className="header-content">
+      <div className="container header-container">
+        <div className="left-section">
           <div className="logo-area">
             <Link to="/" className="site-logo">
               <span className="gradient-text">AI Harvest</span>
@@ -66,33 +66,33 @@ const Header: React.FC = () => {
               </li>
             </ul>
           </nav>
-          
-          <div className="wallet-area">
-            {isConnected && account ? (
-              <div className="wallet-connected">
-                <div className="wallet-address" title={account}>
-                  {formatAddress(account)}
-                </div>
-                <button 
-                  className="button disconnect-button" 
-                  onClick={disconnectWallet}
-                >
-                  Disconnect
-                </button>
+        </div>
+        
+        <div className="wallet-area">
+          {isConnected && account ? (
+            <div className="wallet-connected">
+              <div className="wallet-address" title={account}>
+                {formatAddress(account)}
               </div>
-            ) : (
               <button 
-                className="button connect-button" 
-                onClick={connectWallet}
+                className="button disconnect-button" 
+                onClick={disconnectWallet}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
-                  <line x1="6" y1="12" x2="18" y2="12"></line>
-                </svg>
-                Connect Wallet
+                Disconnect
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <button 
+              className="button connect-button" 
+              onClick={connectWallet}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+                <line x1="6" y1="12" x2="18" y2="12"></line>
+              </svg>
+              Connect Wallet
+            </button>
+          )}
         </div>
       </div>
     </header>

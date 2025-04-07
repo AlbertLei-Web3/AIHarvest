@@ -1,4 +1,5 @@
 /* Home Page Styles */
+/* Updated on 2023-10-22 12:45:10 - Improved card layout and spacing */
 
 /* Gradient Background and Waves */
 .gradient-background {
@@ -178,9 +179,10 @@
 }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 30px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
 }
 
 .stat-card {
@@ -192,6 +194,9 @@
   transition: transform 0.3s ease;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex: 1;
+  min-width: 220px;
+  max-width: calc(25% - 15px);
 }
 
 .stat-card:hover {
@@ -295,14 +300,17 @@
   color: white;
 }
 
-.trading-pairs-section .container {
+.trading-pairs-content {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  flex-wrap: wrap;
   flex-direction: row-reverse;
 }
 
-.trading-pairs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 30px;
+.trading-pairs-info {
+  flex: 1;
+  min-width: 300px;
 }
 
 .trading-pair-card {
@@ -313,6 +321,8 @@
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex: 1;
+  min-width: 300px;
 }
 
 .trading-pair-card:hover {
@@ -435,10 +445,23 @@
   opacity: 0.8;
 }
 
+.cta-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .cta-section h2 {
   font-size: 2.5rem;
   margin-bottom: 20px;
   position: relative;
+  background: linear-gradient(to right, #e2336b, #fcac46);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .cta-section p {
@@ -449,6 +472,7 @@
   margin-right: auto;
   opacity: 0.9;
   position: relative;
+  line-height: 1.6;
 }
 
 .cta-buttons {
@@ -456,6 +480,111 @@
   justify-content: center;
   gap: 15px;
   position: relative;
+  margin-top: 30px;
+}
+
+/* Footer Styles */
+.footer {
+  background: linear-gradient(135deg, #101020 0%, #121630 100%);
+  color: white;
+  padding: 60px 0 30px;
+  position: relative;
+  overflow: hidden;
+}
+
+.footer-content {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: 40px;
+}
+
+.footer-logo {
+  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.footer-logo h3 {
+  font-size: 1.8rem;
+  margin-bottom: 15px;
+  background: linear-gradient(to right, #e2336b, #fcac46);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.footer-logo p {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.footer-links {
+  flex: 1;
+  min-width: 150px;
+}
+
+.footer-links h4 {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.footer-links ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links li {
+  margin-bottom: 10px;
+}
+
+.footer-links a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.footer-links a:hover {
+  color: white;
+  padding-left: 5px;
+}
+
+.social-links {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.social-link {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.social-link:hover {
+  background: linear-gradient(135deg, #e2336b 0%, #fcac46 100%);
+  transform: translateY(-3px);
+}
+
+.social-link svg {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 20px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
 }
 
 /* Apply gradient background to all main sections */
@@ -494,10 +623,13 @@
   .trading-pairs-section .container {
     flex-direction: column;
   }
+  
+  .stat-card {
+    max-width: calc(50% - 15px);
+  }
 }
 
 @media (max-width: 767px) {
-  .stats-grid,
   .features-grid,
   .trading-pairs-grid,
   .steps-container {
@@ -515,6 +647,10 @@
   .cta-section h2 {
     font-size: 2rem;
   }
+  
+  .stat-card {
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 480px) {
@@ -530,4 +666,114 @@
   .hero-content h1 {
     font-size: 2rem;
   }
+}
+
+/* Updated on 2023-10-22 16:35:10 - Simplified footer to logo and social media links */
+.simple-footer {
+  background-color: rgba(18, 18, 36, 0.95);
+  color: #9ca3af;
+  padding: 2rem 0;
+  margin-top: 0;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+/* Add gradient background to footer */
+.simple-footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.8) 0%, rgba(22, 33, 62, 0.8) 50%, rgba(15, 52, 96, 0.8) 100%);
+  z-index: -1;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.footer-branding {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.footer-branding h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(to right, #e2336b, #fcac46);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.footer-branding p {
+  max-width: 400px;
+  opacity: 0.8;
+  line-height: 1.6;
+  margin: 0 auto;
+}
+
+/* Social links in row layout */
+.social-links-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  justify-content: center;
+}
+
+.social-links-row a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(156, 163, 175, 0.1);
+  color: #9ca3af;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Gradient effect on hover for social buttons */
+.social-links-row a::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #e2336b 0%, #fcac46 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.social-links-row a:hover::before {
+  opacity: 1;
+}
+
+.social-links-row a svg {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s ease;
+}
+
+.social-links-row a:hover svg {
+  transform: scale(1.2);
+  color: #fff;
+}
+
+/* Connect CTA and footer with gradient bridge */
+.cta-section {
+  margin-bottom: 0;
+  padding-bottom: 80px;
 } 

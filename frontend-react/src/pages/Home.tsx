@@ -5,6 +5,9 @@ import { ethers } from 'ethers';
 import useAccount from '../hooks/useAccount';
 import swapIllustration from '../assets/swap-illustration.svg';
 
+// 更新于2023-10-22 14:00:15 - 删除底部多余社交链接区域
+// Updated on 2023-10-22 14:00:15 - Removed redundant social links section at the bottom
+
 const Home: React.FC = () => {
   const { account, isConnected } = useAccount();
   const { simpleSwapRouterContract, getTokenBalance } = useContracts();
@@ -119,37 +122,6 @@ const Home: React.FC = () => {
         </div>
       </section>
       
-      {/* Trading Pairs Section - Moved above features */}
-      <section className="trading-pairs-section">
-        <div className="gradient-background">
-          <div className="wave wave1"></div>
-          <div className="wave wave2"></div>
-        </div>
-        <div className="container">
-          <div className="section-content">
-            <h2 className="section-title">Available Trading Pairs</h2>
-          </div>
-          <div className="trading-pair-card">
-            <div className="token-icons">
-              <div className="token-icon">AIH</div>
-              <div className="token-icon">USDC</div>
-            </div>
-            <h3>AIH-USDC</h3>
-            <p className="pair-description">
-              Trade between AI Harvest Token and USDC with competitive rates
-            </p>
-            <div className="pair-buttons">
-              <Link to="/swap" className="button small-button primary-button">
-                Swap
-              </Link>
-              <Link to="/swap" className="button small-button secondary-button">
-                Add Liquidity
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-      
       {/* Features Section */}
       <section className="features-section">
         <div className="gradient-background">
@@ -210,6 +182,48 @@ const Home: React.FC = () => {
         </div>
       </section>
       
+      {/* Trading Pairs Section - With text and card positions swapped */}
+      <section className="trading-pairs-section">
+        <div className="gradient-background">
+          <div className="wave wave1"></div>
+          <div className="wave wave2"></div>
+        </div>
+        <div className="container">
+          <h2 className="section-title">Available Trading Pairs</h2>
+          <div className="trading-pairs-content">
+            {/* Card now appears first in the DOM but will display on the left due to flex-direction: row-reverse in CSS */}
+            <div className="trading-pair-card">
+              <div className="token-icons">
+                <div className="token-icon">AIH</div>
+                <div className="token-icon">USDC</div>
+              </div>
+              <h3>AIH-USDC</h3>
+              <p className="pair-description">
+                Trade between AI Harvest Token and USDC with competitive rates
+              </p>
+              <div className="pair-buttons">
+                <Link to="/swap" className="button small-button primary-button">
+                  Swap
+                </Link>
+                <Link to="/swap" className="button small-button secondary-button">
+                  Add Liquidity
+                </Link>
+              </div>
+            </div>
+            <div className="trading-pairs-info">
+              <p>
+                AI Harvest currently supports trading between AIH and USDC tokens on the Sepolia testnet.
+                Our SimpleSwapRouter provides a straightforward way to exchange these tokens with minimal fees.
+              </p>
+              <p>
+                By using the AIH-USDC trading pair, you can easily convert between tokens for various use cases
+                within the AI Harvest ecosystem.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      
       {/* Getting Started Guide */}
       <section className="getting-started-section">
         <div className="gradient-background">
@@ -241,22 +255,60 @@ const Home: React.FC = () => {
         </div>
       </section>
       
-      {/* CTA Section */}
+      {/* CTA Section with Better Spacing */}
       <section className="cta-section">
         <div className="gradient-background">
           <div className="wave wave1"></div>
           <div className="wave wave2"></div>
         </div>
         <div className="container">
-          <h2>Ready to Start Swapping?</h2>
-          <p>Experience the simplicity and efficiency of our SimpleSwapRouter.</p>
-          <div className="cta-buttons">
-            <Link to="/swap" className="button primary-button">
-              Go to Swap
-            </Link>
+          <div className="cta-content">
+            <h2>Ready to Start Swapping?</h2>
+            <p>Experience the simplicity and efficiency of our SimpleSwapRouter for fast, secure token exchanges.</p>
+            <div className="cta-buttons">
+              <Link to="/swap" className="button primary-button">
+                Go to Swap
+              </Link>
+            </div>
           </div>
         </div>
       </section>
+      
+      {/* Simple Footer with just logo and social links */}
+      <footer className="simple-footer">
+        <div className="footer-content">
+          <div className="footer-branding">
+            <h3 className="gradient-text">AI Harvest</h3>
+            <p>A modern DeFi platform for true token swapping and liquidity innovation.</p>
+          </div>
+          
+          <div className="social-links-row">
+            <a href="#" aria-label="Twitter">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path>
+              </svg>
+            </a>
+            <a href="#" aria-label="Discord">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0-6-5-8-9-8s-9 2-9 8c0 4 2 7 4 8s5-2 5-2 3 3 5 2 4-4 4-8z"></path>
+                <circle cx="9" cy="10" r="1"></circle>
+                <circle cx="15" cy="10" r="1"></circle>
+              </svg>
+            </a>
+            <a href="#" aria-label="Github">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+              </svg>
+            </a>
+            <a href="#" aria-label="YouTube">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
+                <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 /* Header Styles */
-/* Updated on 2023-10-22 10:30:21 - Fixed font size and spacing issues */
+/* Updated on 2023-10-22 16:20:45 - Modified layout for left aligned navigation and right aligned wallet */
 
 .site-header {
   position: sticky;
@@ -12,13 +12,18 @@
   box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
 }
 
-.header-content {
+.header-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+.left-section {
+  display: flex;
+  align-items: center;
 }
 
 .logo-area {
@@ -39,7 +44,7 @@
 }
 
 .main-nav {
-  flex: 1;
+  display: flex;
 }
 
 .main-nav ul {
@@ -85,7 +90,6 @@
 .wallet-area {
   display: flex;
   align-items: center;
-  margin-left: 40px; /* Increased spacing from navigation */
 }
 
 .wallet-connected {
@@ -149,7 +153,13 @@ a.nav-link.active {
 
 /* Responsive Styles */
 @media (max-width: 991px) {
-  .header-content {
+  .header-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .left-section {
+    width: 100%;
     flex-direction: column;
     align-items: flex-start;
   }
