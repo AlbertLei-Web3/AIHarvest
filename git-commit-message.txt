@@ -1,17 +1,38 @@
- feat(frontend): integrate SimpleSwapRouter contract
+feat(frontend): Redesign homepage to showcase SimpleSwapRouter functionality
 
-This commit integrates the new SimpleSwapRouter contract with the frontend application:
+- Updated Home.tsx to feature AIH-USDC swap functionality with real-time stats
+- Added modern gradient background with animated wave elements
+- Created SVG illustrations for swap functionality
+- Fixed TypeScript errors related to window.ethereum declarations
+- Added missing useAccount hook and getTokenBalance function
+- Restructured component for better responsive behavior
+- Optimized UI for mobile and desktop viewing
 
-- Add SIMPLE_SWAP_ROUTER_ABI to types/index.ts with all contract functions 
-- Update .env with SimpleSwapRouter and token addresses
-- Enhance useContracts.ts with SimpleSwapRouter interaction methods:
-  - getSimpleSwapInfo
-  - getSimpleSwapOutputAmount
-  - simpleSwap
-  - addSimpleLiquidity
-- Modify Swap.tsx to use SimpleSwapRouter functionality:
-  - Display whitelist status and indicators
-  - Use actual deployed token addresses
-  - Improve fee and exchange rate display
-  - Add automatic token balance updates
+特性(前端)：重新设计主页以展示SimpleSwapRouter功能
+
+- 更新了Home.tsx以展示AIH-USDC交换功能及实时统计数据
+- 添加了带有动画波浪元素的现代渐变背景
+- 创建了交换功能的SVG插图
+- 修复了与window.ethereum声明相关的TypeScript错误
+- 添加了缺失的useAccount钩子和getTokenBalance函数
+- 重构了组件以获得更好的响应式行为
+- 优化了移动端和桌面端的UI显示
+
+fix(ui): Enhance UI visuals and fix navigation issues
+
+- Increased font size in header navigation and improved spacing
+- Fixed invisible text issue in active navigation links
+- Repositioned wallet button with proper spacing from navigation
+- Enhanced swap illustration by replacing white curves with 45° animated particle lines 
+- Made particles appear behind token icons for better visual hierarchy
+- Improved dynamic particle animations with parallel motion lines
+
+修复(用户界面): 增强UI视觉效果并修复导航问题
+
+- 增加了页眉导航的字体大小并改善了间距
+- 修复了导航链接在激活状态下文字消失的问题
+- 重新定位了钱包按钮，与导航之间保持适当间距
+- 通过45°动画粒子线替换白色曲线，增强了交换图示效果
+- 使粒子出现在代币图标后面，以获得更好的视觉层次
+- 通过平行运动线改进了动态粒子动画效果
 

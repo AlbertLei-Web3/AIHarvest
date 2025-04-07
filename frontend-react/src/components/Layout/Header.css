@@ -1,4 +1,5 @@
 /* Header Styles */
+/* Updated on 2023-10-22 10:30:21 - Fixed font size and spacing issues */
 
 .site-header {
   position: sticky;
@@ -15,6 +16,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
 .logo-area {
@@ -23,7 +27,7 @@
 
 .site-logo {
   text-decoration: none;
-  font-size: 1.5rem;
+  font-size: 1.8rem; /* Increased font size */
   font-weight: 700;
 }
 
@@ -34,6 +38,10 @@
   font-weight: bold;
 }
 
+.main-nav {
+  flex: 1;
+}
+
 .main-nav ul {
   display: flex;
   list-style: none;
@@ -42,7 +50,7 @@
 }
 
 .main-nav li {
-  margin-right: 20px;
+  margin-right: 30px; /* Increased spacing */
 }
 
 .nav-link {
@@ -52,6 +60,8 @@
   position: relative;
   transition: all 0.3s ease;
   opacity: 0.8;
+  font-size: 1.1rem; /* Increased nav font size */
+  letter-spacing: 0.5px;
 }
 
 .nav-link:hover {
@@ -75,6 +85,7 @@
 .wallet-area {
   display: flex;
   align-items: center;
+  margin-left: 40px; /* Increased spacing from navigation */
 }
 
 .wallet-connected {
@@ -88,6 +99,7 @@
   padding: 6px 12px;
   border-radius: 20px;
   margin-right: 10px;
+  font-size: 0.9rem;
 }
 
 .button {
@@ -105,6 +117,7 @@
 .connect-button {
   background: linear-gradient(90deg, #e2336b 0%, #fcac46 100%);
   color: white;
+  font-size: 1rem; /* Increased button font size */
 }
 
 .connect-button svg {
@@ -124,6 +137,14 @@
 
 .disconnect-button:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Fixed navigation links not visible in active state */
+a.nav-link.active {
+  color: #fff;
+  opacity: 1;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 /* Responsive Styles */
@@ -158,6 +179,7 @@
   .wallet-area {
     width: 100%;
     justify-content: center;
+    margin-left: 0;
   }
 }
 
