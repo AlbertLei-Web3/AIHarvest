@@ -1,0 +1,17 @@
+feat(frontend): Redesign Farms page and improve SimpleSwapRouter homepage
+
+- Redesigned Farms page with modern gradient background and animated waves
+- Implemented functional staking, withdrawing and harvesting operations with modals
+- Updated farm cards with improved UI and responsive layout
+- Added APR calculation and pool share visualization
+- Maintained consistent design language with the Home page
+- Connected contract functionality for live data update
+
+功能(前端): 重新设计Farms页面并改进SimpleSwapRouter首页
+
+- 使用现代渐变背景和动画波浪重新设计Farms页面
+- 实现了带有模态框的质押、提取和收获功能操作
+- 更新了农场卡片，改进了UI和响应式布局
+- 添加了APR计算和池份额可视化
+- 保持与Home页面一致的设计语言
+- 连接合约功能实现实时数据更新

@@ -5,8 +5,6 @@ import { ethers } from 'ethers';
 import useAccount from '../hooks/useAccount';
 import swapIllustration from '../assets/swap-illustration.svg';
 
-// 更新于2023-10-22 14:00:15 - 删除底部多余社交链接区域
-// Updated on 2023-10-22 14:00:15 - Removed redundant social links section at the bottom
 
 const Home: React.FC = () => {
   const { account, isConnected } = useAccount();
