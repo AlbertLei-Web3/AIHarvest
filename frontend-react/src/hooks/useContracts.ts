@@ -20,6 +20,7 @@ const FACTORY_ADDRESS = process.env.REACT_APP_FACTORY_ADDRESS || '0xE86cD948176C
 const SIMPLE_SWAP_ROUTER_ADDRESS = process.env.REACT_APP_SIMPLE_SWAP_ROUTER_ADDRESS || '0x5Dcde9e56b34e719a72CF060802D276dcb580730';
 const AIH_TOKEN_ADDRESS = process.env.REACT_APP_AIH_TOKEN_ADDRESS || '0xFcB512f45172aa1e331D926321eaA1C52D7dce8E';
 const USDC_TOKEN_ADDRESS = process.env.REACT_APP_USDC_TOKEN_ADDRESS || '0xB35B48631b69478f28E4365CC1794E378Ad0FA02';
+const FARM_ADDRESS = process.env.REACT_APP_FARM_ADDRESS || '0x02C0e9A0ed9529A3B6d64EDa323057a61cb065B9';
 
 interface UseContractsReturn {
   factoryContract: ethers.Contract | null;
@@ -77,7 +78,9 @@ const useContracts = (): UseContractsReturn => {
         const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
         setFactoryContract(factory);
         
-        // Initialize SimpleSwapRouter
+        const farm = new ethers.Contract(FARM_ADDRESS, FARM_ABI, signer);
+        setFarmContract(farm);
+        
         const simpleSwapRouter = new ethers.Contract(
           SIMPLE_SWAP_ROUTER_ADDRESS,
           SIMPLE_SWAP_ROUTER_ABI,
@@ -202,13 +205,12 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      // In this simplified version, we mock a single pool
-      const stakingTokenAddress = await farmContract.stakingToken();
-      const rewardTokenAddress = await farmContract.rewardToken();
+      // SimpleFarm只有一个池(池0)
+      const stakingTokenAddress = await farmContract.rewardToken(); // 在SimpleFarm中，质押代币与奖励代币相同
       const totalStaked = await farmContract.totalStaked();
-      const rewardRate = await farmContract.rewardRate();
+      const rewardRate = await farmContract.rewardPerSecond();
       
-      // Get token info
+      // 获取代币信息
       const stakingToken = getTokenContract(stakingTokenAddress);
       if (!stakingToken) return [];
       
@@ -218,25 +220,27 @@ const useContracts = (): UseContractsReturn => {
         stakingToken.decimals(),
       ]);
       
-      // Calculate APR (simplified)
-      const apr = "12.5"; // Mock value
+      // 计算APR(简化)
+      const rewardPerYear = parseFloat(ethers.utils.formatEther(rewardRate)) * 3600 * 24 * 365;
+      const totalStakedValue = parseFloat(ethers.utils.formatEther(totalStaked));
+      const apr = totalStakedValue > 0 ? ((rewardPerYear / totalStakedValue) * 100).toFixed(2) : "0";
       
       const pool: PoolInfo = {
         id: 0,
         stakingToken: stakingTokenAddress,
-        rewardToken: rewardTokenAddress,
-        totalStaked: ethers.utils.formatUnits(totalStaked, decimals),
-        rewardRate: ethers.utils.formatUnits(rewardRate, decimals),
+        rewardToken: stakingTokenAddress,
+        totalStaked: ethers.utils.formatEther(totalStaked),
+        rewardRate: ethers.utils.formatEther(rewardRate),
         apr,
         name,
         symbol,
-        lpToken: stakingTokenAddress, // For backward compatibility
+        lpToken: stakingTokenAddress
       };
       
       return [pool];
     } catch (err: any) {
       console.error('Error getting pools:', err);
-      setError('Failed to get pools');
+      setError('Failed to get pools: ' + err.message);
       return [];
     } finally {
       setIsLoading(false);
@@ -250,18 +254,19 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      const [amount, rewardDebt] = await farmContract.getUserInfo(userAddress);
-      const pendingReward = await farmContract.getPendingReward(userAddress);
+      // SimpleFarm直接使用地址映射
+      const userInfoRaw = await farmContract.userInfo(userAddress);
+      const pendingReward = await farmContract.pendingReward(userAddress);
       
       return {
-        amount: ethers.utils.formatEther(amount),
-        rewardDebt: ethers.utils.formatEther(rewardDebt),
+        amount: ethers.utils.formatEther(userInfoRaw[0]),  // amount
+        rewardDebt: ethers.utils.formatEther(userInfoRaw[1]), // rewardDebt
         pendingReward: ethers.utils.formatEther(pendingReward),
-        unlockTime: 0, // not implemented in the current contract
+        unlockTime: Number(userInfoRaw[2])  // unlockTime
       };
     } catch (err: any) {
       console.error('Error getting user info:', err);
-      setError('Failed to get user info');
+      setError('Failed to get user info: ' + err.message);
       return null;
     } finally {
       setIsLoading(false);
@@ -327,19 +332,20 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      const stakingTokenAddress = await farmContract.stakingToken();
+      const stakingTokenAddress = await farmContract.rewardToken();
       const tokenContract = new ethers.Contract(stakingTokenAddress, ERC20_ABI, signer);
       
       const decimals = await tokenContract.decimals();
       const parsedAmount = ethers.utils.parseUnits(amount, decimals);
       
-      // Approve tokens first
-      const tx1 = await tokenContract.approve(farmContract.address, parsedAmount);
-      await tx1.wait();
+      // 批准代币
+      const approveTx = await tokenContract.approve(FARM_ADDRESS, parsedAmount);
+      await approveTx.wait();
+      console.log('Tokens approved for staking');
       
-      // Then deposit
-      const tx2 = await farmContract.connect(signer).deposit(0, parsedAmount);
-      return tx2;
+      // SimpleFarm的deposit函数不需要pid参数
+      const tx = await farmContract.connect(signer).deposit(parsedAmount);
+      return tx;
     } catch (err: any) {
       console.error('Error depositing tokens:', err);
       setError('Failed to deposit tokens: ' + err.message);
@@ -356,13 +362,14 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      const stakingTokenAddress = await farmContract.stakingToken();
+      const stakingTokenAddress = await farmContract.rewardToken();
       const tokenContract = new ethers.Contract(stakingTokenAddress, ERC20_ABI, signer);
       
       const decimals = await tokenContract.decimals();
       const parsedAmount = ethers.utils.parseUnits(amount, decimals);
       
-      const tx = await farmContract.connect(signer).withdraw(0, parsedAmount);
+      // SimpleFarm的withdraw函数
+      const tx = await farmContract.connect(signer).withdraw(parsedAmount);
       return tx;
     } catch (err: any) {
       console.error('Error withdrawing tokens:', err);
@@ -380,8 +387,43 @@ const useContracts = (): UseContractsReturn => {
     setError(null);
     
     try {
-      const tx = await farmContract.connect(signer).compound(0);
-      return tx;
+      // SimpleFarm没有compound函数，可以模拟实现
+      // 先收获奖励，再将奖励质押回去
+      const pendingReward = await farmContract.pendingReward(account);
+      
+      if (pendingReward.isZero()) {
+        setError('No rewards to compound');
+        return null;
+      }
+      
+      // 提取当前所有的质押代币和奖励
+      const userInfo = await farmContract.userInfo(account);
+      const currentStake = userInfo[0];
+      
+      // 检查是否已解锁
+      const unlockTime = userInfo[2];
+      if (Number(unlockTime) > Math.floor(Date.now() / 1000)) {
+        setError('Tokens are still locked, cannot compound');
+        return null;
+      }
+      
+      // 提取所有质押和奖励
+      const withdrawTx = await farmContract.withdraw(currentStake);
+      await withdrawTx.wait();
+      
+      // 重新质押(原始金额 + 奖励)
+      const tokenAddress = await farmContract.rewardToken();
+      const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+      
+      // 获取提取后的余额
+      const newBalance = await tokenContract.balanceOf(account);
+      
+      // 批准新的总额
+      await tokenContract.approve(farmContract.address, newBalance);
+      
+      // 质押全部代币
+      const depositTx = await farmContract.deposit(newBalance);
+      return depositTx;
     } catch (err: any) {
       console.error('Error compounding rewards:', err);
       setError('Failed to compound rewards: ' + err.message);
@@ -425,7 +467,8 @@ const useContracts = (): UseContractsReturn => {
     if (!farmContract) return '0';
     
     try {
-      const pendingReward = await farmContract.getPendingReward(userAddress);
+      // SimpleFarm的pendingReward函数
+      const pendingReward = await farmContract.pendingReward(userAddress);
       return ethers.utils.formatEther(pendingReward);
     } catch (err) {
       console.error('Error getting pending reward:', err);

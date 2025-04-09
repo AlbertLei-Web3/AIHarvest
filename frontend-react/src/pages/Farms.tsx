@@ -385,7 +385,7 @@ const Farms: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="farms-page">
       <div className="gradient-background">
