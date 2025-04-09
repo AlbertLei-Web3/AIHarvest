@@ -1,0 +1,85 @@
+{
+  "networks": {
+    "sepolia": {
+      "name": "Sepolia Testnet",
+      "chainId": "11155111",
+      "rpcUrl": "https://sepolia.infura.io/v3/${INFURA_API_KEY}",
+      "blockExplorer": "https://sepolia.etherscan.io",
+      "contracts": {
+        "SimpleSwapRouter": {
+          "address": "0x5Dcde9e56b34e719a72CF060802D276dcb580730",
+          "abiFile": "SimpleSwapRouter.json",
+          "deployed": true
+        },
+        "FarmUpgradeableV2": {
+          "address": "", 
+          "abiFile": "FarmUpgradeableV2.json",
+          "deployed": false,
+          "implementation": ""
+        },
+        "FactoryUpgradeableV2": {
+          "address": "",
+          "abiFile": "FactoryUpgradeableV2.json",
+          "deployed": false,
+          "implementation": ""
+        }
+      },
+      "tokens": {
+        "AIH": {
+          "address": "0xFcB512f45172aa1e331D926321eaA1C52D7dce8E",
+          "decimals": 18,
+          "symbol": "AIH",
+          "name": "AI Harvest Token"
+        },
+        "USDC": {
+          "address": "0xB35B48631b69478f28E4365CC1794E378Ad0FA02",
+          "decimals": 6,
+          "symbol": "USDC",
+          "name": "USD Coin"
+        }
+      }
+    },
+    "hardhat": {
+      "name": "Hardhat Local",
+      "chainId": "31337",
+      "rpcUrl": "http://127.0.0.1:8545/",
+      "blockExplorer": "",
+      "contracts": {
+        "SimpleSwapRouter": {
+          "address": "",
+          "abiFile": "SimpleSwapRouter.json",
+          "deployed": false
+        },
+        "FarmUpgradeableV2": {
+          "address": "",
+          "abiFile": "FarmUpgradeableV2.json",
+          "deployed": false,
+          "implementation": ""
+        },
+        "FactoryUpgradeableV2": {
+          "address": "",
+          "abiFile": "FactoryUpgradeableV2.json",
+          "deployed": false,
+          "implementation": ""
+        }
+      },
+      "tokens": {
+        "AIH": {
+          "address": "",
+          "decimals": 18,
+          "symbol": "AIH",
+          "name": "AI Harvest Token"
+        },
+        "USDC": {
+          "address": "",
+          "decimals": 6,
+          "symbol": "USDC",
+          "name": "USD Coin"
+        }
+      }
+    }
+  },
+  "abisPath": "../artifacts/contracts",
+  "defaultNetwork": "sepolia",
+  "lastUpdate": "2025-04-08T00:00:00.000Z"
+} 
