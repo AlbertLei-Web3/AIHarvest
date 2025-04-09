@@ -20,11 +20,15 @@ async function main() {
   // 获取部署账户
   const [deployer] = await ethers.getSigners();
   console.log(`部署账户: ${deployer.address}`);
-  console.log(`账户余额: ${ethers.utils.formatEther(await deployer.getBalance())} ETH`);
+  
+  // 在ethers v6中，formatEther 是直接在 ethers 下的，不是在 utils 子对象中
+  const balance = await ethers.provider.getBalance(deployer.address);
+  console.log(`账户余额: ${ethers.formatEther(balance)} ETH`);
   
   // 加载配置
   const config = loadConfig();
   const network = await ethers.provider.getNetwork();
+  // 在ethers v6中，network.name变成了network.name属性
   const networkName = network.name === "unknown" ? "sepolia" : network.name;
   console.log(`当前网络: ${networkName} (chainId: ${network.chainId})`);
   
@@ -59,24 +63,24 @@ async function main() {
       const symbol = await aihToken.symbol();
       const balance = await aihToken.balanceOf(deployer.address);
       
-      console.log(`找到 ${symbol} 代币，部署者余额: ${ethers.utils.formatEther(balance)}`);
+      console.log(`找到 ${symbol} 代币，部署者余额: ${ethers.formatEther(balance)}`);
       
       // 显示接收者余额
       const recipientBalance = await aihToken.balanceOf(recipient);
-      console.log(`接收者当前 ${symbol} 余额: ${ethers.utils.formatEther(recipientBalance)}`);
+      console.log(`接收者当前 ${symbol} 余额: ${ethers.formatEther(recipientBalance)}`);
       
       // 如果是部署者的话，跳过转账
-      if (recipient !== deployer.address && balance.gt(0)) {
-        const transferAmount = ethers.utils.parseEther("1000"); // 转1000个代币
-        if (balance.gte(transferAmount)) {
-          console.log(`转账 ${ethers.utils.formatEther(transferAmount)} ${symbol} 到 ${recipient}`);
+      if (recipient !== deployer.address && balance > 0) {
+        const transferAmount = ethers.parseEther("1000"); // 转1000个代币
+        if (balance >= transferAmount) {
+          console.log(`转账 ${ethers.formatEther(transferAmount)} ${symbol} 到 ${recipient}`);
           await aihToken.transfer(recipient, transferAmount);
           
           // 验证转账
           const newRecipientBalance = await aihToken.balanceOf(recipient);
-          console.log(`转账后接收者 ${symbol} 余额: ${ethers.utils.formatEther(newRecipientBalance)}`);
+          console.log(`转账后接收者 ${symbol} 余额: ${ethers.formatEther(newRecipientBalance)}`);
         } else {
-          console.log(`部署者余额不足，无法转账 ${ethers.utils.formatEther(transferAmount)} ${symbol}`);
+          console.log(`部署者余额不足，无法转账 ${ethers.formatEther(transferAmount)} ${symbol}`);
         }
       }
     } catch (error) {
@@ -94,24 +98,24 @@ async function main() {
       const decimals = await usdcToken.decimals();
       const balance = await usdcToken.balanceOf(deployer.address);
       
-      console.log(`找到 ${symbol} 代币，部署者余额: ${ethers.utils.formatUnits(balance, decimals)}`);
+      console.log(`找到 ${symbol} 代币，部署者余额: ${ethers.formatUnits(balance, decimals)}`);
       
       // 显示接收者余额
       const recipientBalance = await usdcToken.balanceOf(recipient);
-      console.log(`接收者当前 ${symbol} 余额: ${ethers.utils.formatUnits(recipientBalance, decimals)}`);
+      console.log(`接收者当前 ${symbol} 余额: ${ethers.formatUnits(recipientBalance, decimals)}`);
       
       // 如果是部署者的话，跳过转账
-      if (recipient !== deployer.address && balance.gt(0)) {
-        const transferAmount = ethers.utils.parseUnits("1000", decimals); // 转1000个代币
-        if (balance.gte(transferAmount)) {
-          console.log(`转账 ${ethers.utils.formatUnits(transferAmount, decimals)} ${symbol} 到 ${recipient}`);
+      if (recipient !== deployer.address && balance > 0) {
+        const transferAmount = ethers.parseUnits("1000", decimals); // 转1000个代币
+        if (balance >= transferAmount) {
+          console.log(`转账 ${ethers.formatUnits(transferAmount, decimals)} ${symbol} 到 ${recipient}`);
           await usdcToken.transfer(recipient, transferAmount);
           
           // 验证转账
           const newRecipientBalance = await usdcToken.balanceOf(recipient);
-          console.log(`转账后接收者 ${symbol} 余额: ${ethers.utils.formatUnits(newRecipientBalance, decimals)}`);
+          console.log(`转账后接收者 ${symbol} 余额: ${ethers.formatUnits(newRecipientBalance, decimals)}`);
         } else {
-          console.log(`部署者余额不足，无法转账 ${ethers.utils.formatUnits(transferAmount, decimals)} ${symbol}`);
+          console.log(`部署者余额不足，无法转账 ${ethers.formatUnits(transferAmount, decimals)} ${symbol}`);
         }
       }
     } catch (error) {
@@ -128,7 +132,7 @@ async function main() {
 async function runWithArgs() {
   // 允许通过命令行指定接收者地址，例如: node scripts/simple-token-distribute.js 0x123...
   const args = process.argv.slice(2);
-  if (args.length > 0 && ethers.utils.isAddress(args[0])) {
+  if (args.length > 0 && ethers.isAddress(args[0])) {
     process.env.RECIPIENT_ADDRESS = args[0];
   }
   
