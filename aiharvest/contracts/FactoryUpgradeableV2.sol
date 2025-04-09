@@ -7,8 +7,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import "./FarmUpgradeable.sol";
-import "./SwapRouterUpgradeable.sol";
+import "./FarmUpgradeableV2.sol";
+import "./SimpleSwapRouter.sol";
 
 /// @title Upgradeable Factory Contract V2 for AI Harvest
 /// @notice Enhanced factory with batch deployment and farm upgrades
@@ -203,7 +203,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
         
         // 创建代理并初始化
         bytes memory initData = abi.encodeWithSelector(
-            FarmUpgradeable.initialize.selector,
+            FarmUpgradeableV2.initialize.selector,
             _rewardToken,
             _rewardPerSecond,
             _startTime,
@@ -244,7 +244,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
         require(!blacklistedFarms[_farm], "Farm is blacklisted");
         
         // 调用Farm的升级函�?
-        FarmUpgradeable(_farm).upgradeTo(farmImplementation);
+        FarmUpgradeableV2(_farm).upgradeTo(farmImplementation);
         
         emit FarmUpgraded(_farm, farmImplementation);
     }
@@ -264,7 +264,7 @@ contract FactoryUpgradeableV2 is Initializable, OwnableUpgradeable, UUPSUpgradea
                 !blacklistedFarms[farm]
             ) {
                 // 调用Farm的升级函�?
-                FarmUpgradeable(farm).upgradeTo(farmImplementation);
+                FarmUpgradeableV2(farm).upgradeTo(farmImplementation);
                 emit FarmUpgraded(farm, farmImplementation);
             }
         }
