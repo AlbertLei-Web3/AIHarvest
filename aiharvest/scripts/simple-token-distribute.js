@@ -42,8 +42,17 @@ async function main() {
   console.log(`USDC代币地址: ${USDC_ADDRESS}`);
   
   // 输入接收者地址
+  // 使用环境变量RECIPIENT_ADDRESS获取接收者地址，不再从命令行参数获取
   const recipient = process.env.RECIPIENT_ADDRESS || deployer.address;
   console.log(`\n接收者地址: ${recipient}`);
+  
+  if (process.env.RECIPIENT_ADDRESS) {
+    console.log(`使用环境变量提供的接收者地址: ${recipient}`);
+  } else {
+    console.log(`使用部署者地址作为接收者: ${recipient}`);
+    console.log(`如需指定其他接收者，请设置环境变量 RECIPIENT_ADDRESS`);
+    console.log(`示例: set RECIPIENT_ADDRESS=0x接收者地址 && npx hardhat run scripts/simple-token-distribute.js --network sepolia`);
+  }
   
   // 使用 ERC20 ABI 而不是特定合约
   const erc20Abi = [
@@ -128,18 +137,8 @@ async function main() {
   console.log("\nToken查询/分发脚本执行完成!");
 }
 
-// 处理命令行参数
-async function runWithArgs() {
-  // 允许通过命令行指定接收者地址，例如: node scripts/simple-token-distribute.js 0x123...
-  const args = process.argv.slice(2);
-  if (args.length > 0 && ethers.isAddress(args[0])) {
-    process.env.RECIPIENT_ADDRESS = args[0];
-  }
-  
-  await main();
-}
-
-runWithArgs()
+// 主函数
+main()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

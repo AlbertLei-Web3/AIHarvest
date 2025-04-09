@@ -36,16 +36,15 @@ async function main() {
   // 获取农场地址
   let farmAddress = networkConfig.contracts.FarmUpgradeableV2.address;
   
-  // 如果配置中没有农场地址，让用户输入
+  // 如果配置中没有农场地址，从环境变量获取
   if (!farmAddress || farmAddress === "") {
-    // 检查命令行参数是否提供了农场地址
-    const args = process.argv.slice(2);
-    if (args.length > 0 && ethers.isAddress(args[0])) {
-      farmAddress = args[0];
-      console.log(`使用命令行提供的农场地址: ${farmAddress}`);
+    farmAddress = process.env.FARM_ADDRESS;
+    
+    if (farmAddress) {
+      console.log(`使用环境变量提供的农场地址: ${farmAddress}`);
     } else {
-      console.log(`配置中没有找到农场地址，请使用命令行参数提供农场地址`);
-      console.log(`示例: npx hardhat run scripts/check-farm.js --network sepolia 0x农场地址`);
+      console.log(`配置中没有找到农场地址，请设置环境变量 FARM_ADDRESS`);
+      console.log(`示例: set FARM_ADDRESS=0x农场地址 && npx hardhat run scripts/check-farm.js --network sepolia`);
       return;
     }
   }
