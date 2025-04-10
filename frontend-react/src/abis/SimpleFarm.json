@@ -96,7 +96,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_amount",
+        "name": "amount",
         "type": "uint256"
       }
     ],
@@ -216,7 +216,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_user",
+        "name": "user",
         "type": "address"
       }
     ],
@@ -295,7 +295,7 @@
     "name": "rewardToken",
     "outputs": [
       {
-        "internalType": "contract IERC20",
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -408,7 +408,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_amount",
+        "name": "amount",
         "type": "uint256"
       }
     ],

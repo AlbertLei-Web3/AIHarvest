@@ -54,7 +54,9 @@ const App: React.FC = () => {
     isLoading, 
     errorMessage, 
     setError,
-    setLoading
+    setLoading,
+    pools,
+    setPools
   } = useFarmStore();
   
   const { 
@@ -63,83 +65,133 @@ const App: React.FC = () => {
     loadFarmContract,
     getPools,
     getUserInfo,
+    error: contractsError,
   } = useContracts();
   
   const { account, isConnected } = useFarmStore();
   
+  const [initialDataLoaded, setInitialDataLoaded] = React.useState(false);
+  const [poolsDataLoaded, setPoolsDataLoaded] = React.useState(false);
+  const [userDataLoaded, setUserDataLoaded] = React.useState(false);
+  
   // Effect to load farm data when connected
   useEffect(() => {
     const loadInitialData = async () => {
+      if (initialDataLoaded || !factoryContract || !isConnected) return;
+      
       try {
-        if (!factoryContract || !isConnected) return;
-        
         setLoading(true);
+        console.log("Loading initial farm data...");
+        
         // Get farms
         const allFarms = await factoryContract.getAllFarms();
         
         if (allFarms.length > 0) {
           // Load the first farm
           loadFarmContract(allFarms[0]);
+          console.log("Loaded farm contract:", allFarms[0]);
         }
         
-        setLoading(false);
+        setInitialDataLoaded(true);
       } catch (err: any) {
         console.error('Error loading farms:', err);
         setError(err.message || 'Failed to load farms');
+      } finally {
         setLoading(false);
       }
     };
     
     loadInitialData();
-  }, [factoryContract, isConnected, loadFarmContract, setError, setLoading]);
+  }, [factoryContract, isConnected, loadFarmContract, setError, setLoading, initialDataLoaded]);
   
   // Effect to load pool data when farm contract is loaded
   useEffect(() => {
     const loadPoolsData = async () => {
+      if (poolsDataLoaded || !farmContract) return;
+      
       try {
-        if (!farmContract) return;
-        
         setLoading(true);
-        const pools = await getPools();
-        useFarmStore.getState().setPools(pools);
-        setLoading(false);
+        console.log("Loading pools data...");
+        
+        try {
+          const poolsData = await getPools();
+          if (poolsData && poolsData.length > 0) {
+            console.log("Loaded pools:", poolsData.length);
+            setPools(poolsData);
+          } else {
+            console.log("No pools found or returned empty array");
+          }
+        } catch (poolError) {
+          console.error("Error in getPools:", poolError);
+        }
+        
+        setPoolsDataLoaded(true);
       } catch (err: any) {
-        console.error('Error loading pools:', err);
-        setError(err.message || 'Failed to load pools');
+        console.error('Error in loadPoolsData:', err);
+        setError('Failed to load pools data');
+      } finally {
         setLoading(false);
       }
     };
     
-    loadPoolsData();
-  }, [farmContract, getPools, setError, setLoading]);
+    if (farmContract && !poolsDataLoaded) {
+      loadPoolsData();
+    }
+  }, [farmContract, getPools, setError, setLoading, setPools, poolsDataLoaded]);
   
   // Effect to load user data when connected and farm contract is loaded
   useEffect(() => {
     const loadUserData = async () => {
+      if (userDataLoaded || !farmContract || !account || !isConnected) return;
+      
       try {
-        if (!farmContract || !account || !isConnected) return;
-        
         setLoading(true);
-        const pools = useFarmStore.getState().pools;
+        console.log("Loading user data for account:", account);
         
-        for (let i = 0; i < pools.length; i++) {
-          const userInfo = await getUserInfo(i, account);
-          if (userInfo) {
-            useFarmStore.getState().setUserStakeInfo(i, userInfo);
+        if (pools.length > 0) {
+          for (let i = 0; i < pools.length; i++) {
+            try {
+              const userInfo = await getUserInfo(i, account);
+              if (userInfo) {
+                useFarmStore.getState().setUserStakeInfo(i, userInfo);
+                console.log(`Set user info for pool ${i}`, userInfo);
+              }
+            } catch (poolError) {
+              console.error(`Error loading user info for pool ${i}:`, poolError);
+            }
           }
+        } else {
+          console.log("No pools available for user data loading");
         }
         
-        setLoading(false);
+        setUserDataLoaded(true);
       } catch (err: any) {
-        console.error('Error loading user data:', err);
-        setError(err.message || 'Failed to load user data');
+        console.error('Error in loadUserData:', err);
+        setError('Failed to load user data');
+      } finally {
         setLoading(false);
       }
     };
     
-    loadUserData();
-  }, [farmContract, account, isConnected, getUserInfo, setError, setLoading]);
+    if (farmContract && account && isConnected && pools.length > 0 && !userDataLoaded) {
+      loadUserData();
+    }
+  }, [farmContract, account, isConnected, getUserInfo, setError, setLoading, pools, userDataLoaded]);
   
+  useEffect(() => {
+    if (contractsError) {
+      setError(`Contract error: ${contractsError}`);
+    }
+  }, [contractsError, setError]);
+  
+  useEffect(() => {
+    if (!isConnected) {
+      setInitialDataLoaded(false);
+      setPoolsDataLoaded(false);
+      setUserDataLoaded(false);
+    }
+  }, [isConnected]);
+
   return (
     <Router>
       <div className="d-flex flex-column min-vh-100">
